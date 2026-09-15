@@ -1,0 +1,29 @@
+{# Página inicial: envio do PDF. #}
+{% extends "base.html" %}
+{% block conteudo %}
+
+<section class="card destaque centro">
+  <h1>Auditar Relatório de Teste de Usabilidade</h1>
+  <p class="dica">Envie o PDF para identificar as Não Conformidades do checklist padrão da disciplina.</p>
+  <form action="{{ url_for('auditar_documento') }}" method="post"
+        enctype="multipart/form-data" class="form-upload">
+    <input type="file" name="documento" accept="application/pdf" required>
+    <button type="submit">Analisar documento</button>
+  </form>
+</section>
+
+<details class="card">
+  <summary><strong>Ver checklist</strong> · {{ criterios|length }} critérios</summary>
+  <table>
+    <tbody>
+      {% for criterio in criterios %}
+      <tr>
+        <td class="col-codigo">{{ criterio.codigo }}</td>
+        <td>{{ criterio.descricao }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+
+{% endblock %}

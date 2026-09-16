@@ -1,29 +1,52 @@
-{# Página inicial: envio do PDF. #}
-{% extends "base.html" %}
-{% block conteudo %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auditoria de Qualidade</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <a href="{{ url_for('index') }}" class="marca">🔍 Auditoria de Qualidade</a>
+    <span class="sub">Teste de Usabilidade</span>
+  </header>
 
-<section class="card destaque centro">
-  <h1>Auditar Relatório de Teste de Usabilidade</h1>
-  <p class="dica">Envie o PDF para identificar as Não Conformidades do checklist padrão da disciplina.</p>
-  <form action="{{ url_for('auditar_documento') }}" method="post"
-        enctype="multipart/form-data" class="form-upload">
-    <input type="file" name="documento" accept="application/pdf" required>
-    <button type="submit">Analisar documento</button>
-  </form>
-</section>
-
-<details class="card">
-  <summary><strong>Ver checklist</strong> · {{ criterios|length }} critérios</summary>
-  <table>
-    <tbody>
-      {% for criterio in criterios %}
-      <tr>
-        <td class="col-codigo">{{ criterio.codigo }}</td>
-        <td>{{ criterio.descricao }}</td>
-      </tr>
+  <main class="container">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, msg in mensagens %}
+        <div class="flash flash-{{ categoria }}">{{ msg }}</div>
       {% endfor %}
-    </tbody>
-  </table>
-</details>
+    {% endwith %}
 
-{% endblock %}
+    <section class="card destaque centro">
+      <h1>Auditar Relatório de Teste de Usabilidade</h1>
+      <p class="dica">Envie o PDF para identificar as Não Conformidades do checklist padrão da disciplina.</p>
+      <form action="{{ url_for('auditar_documento') }}" method="post"
+            enctype="multipart/form-data" class="form-upload">
+        <input type="file" name="documento" accept="application/pdf" required>
+        <button type="submit">Analisar documento</button>
+      </form>
+    </section>
+
+    <details class="card">
+      <summary><strong>Ver checklist</strong> · {{ criterios|length }} critérios</summary>
+      <table>
+        <tbody>
+          {% for criterio in criterios %}
+          <tr>
+            <td class="col-codigo">{{ criterio.codigo }}</td>
+            <td>{{ criterio.descricao }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </main>
+
+  <footer class="rodape">
+    Trabalho da disciplina de Qualidade de Software — projeto acadêmico.
+  </footer>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

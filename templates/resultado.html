@@ -1,58 +1,74 @@
-{# Página de resultado: aderência e as NCs identificadas. #}
-{% extends "base.html" %}
-{% block titulo %}Resultado da auditoria{% endblock %}
-{% block conteudo %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resultado da auditoria</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <a href="{{ url_for('index') }}" class="marca">🔍 Auditoria de Qualidade</a>
+    <span class="sub">Teste de Usabilidade</span>
+  </header>
 
-{% set classe_aderencia = 'ok' if resultado.aderencia >= 80 else 'alerta' if resultado.aderencia >= 50 else 'ruim' %}
+  <main class="container">
+    {% set classe_aderencia = 'ok' if resultado.aderencia >= 80 else 'alerta' if resultado.aderencia >= 50 else 'ruim' %}
 
-<section class="card destaque">
-  <p class="dica">{{ resultado.arquivo }}</p>
-  <div class="painel-aderencia">
-    <div class="medidor {{ classe_aderencia }}">
-      <span class="numero">{{ resultado.aderencia }}%</span>
-      <span class="rotulo">aderência</span>
-    </div>
-    <p class="mensagem">
-      <strong>{{ resultado.nao_conformidades|length }}</strong> não conformidade{{ 'de' if resultado.nao_conformidades|length == 1 else 's' }} encontrada{{ '' if resultado.nao_conformidades|length == 1 else 's' }}
-      em {{ resultado.total_criterios }} critérios.
-    </p>
-  </div>
-  <a href="{{ url_for('index') }}" class="link-voltar">← nova auditoria</a>
-</section>
-
-<section class="card">
-  <h2>Não conformidades</h2>
-  {% if resultado.nao_conformidades %}
-  <ul class="lista-nc">
-    {% for nc in resultado.nao_conformidades %}
-    <li>
-      <span class="badge badge-nc">{{ nc.codigo }}</span>
-      <div>
-        <p class="nc-titulo">{{ nc.descricao }}</p>
-        <p class="nc-evidencia">{{ nc.evidencia }}</p>
+    <section class="card destaque">
+      <p class="dica">{{ resultado.arquivo }}</p>
+      <div class="painel-aderencia">
+        <div class="medidor {{ classe_aderencia }}">
+          <span class="numero">{{ resultado.aderencia }}%</span>
+          <span class="rotulo">aderência</span>
+        </div>
+        <p class="mensagem">
+          <strong>{{ resultado.nao_conformidades|length }}</strong> não conformidade{{ 'de' if resultado.nao_conformidades|length == 1 else 's' }} encontrada{{ '' if resultado.nao_conformidades|length == 1 else 's' }}
+          em {{ resultado.total_criterios }} critérios.
+        </p>
       </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="vazio">Nenhuma NC — documento 100% aderente ao checklist. 🎉</p>
-  {% endif %}
-</section>
+      <a href="{{ url_for('index') }}" class="link-voltar">← nova auditoria</a>
+    </section>
 
-<details class="card">
-  <summary><strong>Ver checklist completo</strong> · {{ resultado.total_criterios }} critérios</summary>
-  <table>
-    <thead><tr><th>Código</th><th>Critério</th><th>Situação</th></tr></thead>
-    <tbody>
-      {% for item in resultado.itens %}
-      <tr>
-        <td class="col-codigo">{{ item.codigo }}</td>
-        <td>{{ item.descricao }}</td>
-        <td><span class="badge badge-{{ 'cf' if item.status == 'CF' else 'na' if item.status == 'N/A' else 'nc' }}">{{ item.status }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</details>
+    <section class="card">
+      <h2>Não conformidades</h2>
+      {% if resultado.nao_conformidades %}
+      <ul class="lista-nc">
+        {% for nc in resultado.nao_conformidades %}
+        <li>
+          <span class="badge badge-nc">{{ nc.codigo }}</span>
+          <div>
+            <p class="nc-titulo">{{ nc.descricao }}</p>
+            <p class="nc-evidencia">{{ nc.evidencia }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="vazio">Nenhuma NC — documento 100% aderente ao checklist. 🎉</p>
+      {% endif %}
+    </section>
 
-{% endblock %}
+    <details class="card">
+      <summary><strong>Ver checklist completo</strong> · {{ resultado.total_criterios }} critérios</summary>
+      <table>
+        <thead><tr><th>Código</th><th>Critério</th><th>Situação</th></tr></thead>
+        <tbody>
+          {% for item in resultado.itens %}
+          <tr>
+            <td class="col-codigo">{{ item.codigo }}</td>
+            <td>{{ item.descricao }}</td>
+            <td><span class="badge badge-{{ 'cf' if item.status == 'CF' else 'na' if item.status == 'N/A' else 'nc' }}">{{ item.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </main>
+
+  <footer class="rodape">
+    Trabalho da disciplina de Qualidade de Software — projeto acadêmico.
+  </footer>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

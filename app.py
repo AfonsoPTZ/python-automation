@@ -1,5 +1,8 @@
 # Aplicação Flask: recebe o PDF e liga ao motor de auditoria.
+from dotenv import load_dotenv
 from flask import Flask, flash, redirect, render_template, request, url_for
+
+load_dotenv()
 
 from auditoria import CRITERIOS, NOME, auditar
 
@@ -27,7 +30,7 @@ def auditar_documento():
     try:
         resultado = auditar(arquivo.stream, arquivo.filename)
     except Exception as erro:
-        flash(f"Não foi possível ler o PDF: {erro}", "erro")
+        flash(f"Não foi possível concluir a auditoria: {erro}", "erro")
         return redirect(url_for("index"))
 
     return render_template("resultado.html", resultado=resultado)

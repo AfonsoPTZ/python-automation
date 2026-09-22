@@ -112,7 +112,7 @@
                data-nc-notificado-em="{{ nc.notificado_em or '' }}"
                data-projeto-nome="{{ projeto.nome }}"
                data-responsavel-email="{{ projeto.responsavel_superior_email }}"
-               data-participantes="{{ participantes|map(attribute='email')|join(',') }}">
+               data-participantes='{{ participantes_json|tojson }}'>
             <div class="nc-card-topo">
               <h3>{{ nc.titulo }}</h3>
               <div class="acoes-linha">

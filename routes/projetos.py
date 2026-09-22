@@ -392,10 +392,15 @@ def detalhe(projeto_id):
     ]
     proximo_prazo = min(prazos_abertos) if prazos_abertos else None
 
+    # Lista simples (nome + e-mail) pro JS montar os checkboxes de "enviar
+    # para" no modal de e-mail, sem precisar de outra rota/requisição.
+    participantes_json = [{"nome": p["nome"], "email": p["email"]} for p in participantes]
+
     return render_template(
         "projeto_detalhe.html",
         projeto=projeto,
         participantes=participantes,
+        participantes_json=participantes_json,
         documentos=documentos,
         versao_maxima=versao_maxima,
         auditorias=auditorias,

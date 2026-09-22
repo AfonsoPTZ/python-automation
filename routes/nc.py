@@ -134,9 +134,19 @@ def notificar(nc_id):
     participantes = db.execute(
         "SELECT * FROM participantes WHERE projeto_id = ?", (nc["projeto_id"],)
     ).fetchall()
-    destinatarios = [participante["email"] for participante in participantes]
-    if not destinatarios:
+    if not participantes:
         flash("Cadastre ao menos um integrante com e-mail antes de notificar.", "erro")
+        return redirect(url_for("projetos.detalhe", projeto_id=nc["projeto_id"]))
+
+    # O auditor escolhe quem recebe, por NC (checkboxes no modal de e-mail) —
+    # aqui só confirma que o(s) e-mail(s) marcado(s) realmente pertence(m) a
+    # um integrante do projeto, pra não aceitar valor arbitrário do form.
+    emails_validos = {participante["email"] for participante in participantes}
+    destinatarios = [
+        email for email in request.form.getlist("participante_email") if email in emails_validos
+    ]
+    if not destinatarios:
+        flash("Selecione ao menos um integrante para receber o e-mail.", "erro")
         return redirect(url_for("projetos.detalhe", projeto_id=nc["projeto_id"]))
 
     agora = datetime.now().strftime(FORMATO_DATA)

@@ -94,30 +94,15 @@ function montarLinkGmail(destinatarios, assunto, corpo) {
   return `https://mail.google.com/mail/?view=cm&fs=1&${parametros.toString()}`;
 }
 
-function pad(numero) {
-  return String(numero).padStart(2, "0");
-}
-
-function formatarDataHoraSql(data) {
-  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())} `
-    + `${pad(data.getHours())}:${pad(data.getMinutes())}:${pad(data.getSeconds())}`;
-}
-
-// Mesma regra do servidor (routes/nc.py:_calcular_prazo_limite): data
-// customizada tem prioridade; senão, agora + N horas.
-function calcularPrazoDoForm(form) {
-  const customizado = form.querySelector('[name="prazo_customizado"]');
-  if (customizado && customizado.value) return customizado.value.replace("T", " ") + ":00";
-
-  const horasEl = form.querySelector('[name="prazo_horas"]');
-  const horas = horasEl ? parseInt(horasEl.value, 10) : NaN;
-  if (Number.isNaN(horas)) return null;
-  return formatarDataHoraSql(new Date(Date.now() + horas * 3600 * 1000));
-}
-
 function dadosDaNc(form) {
   const card = form.closest("[data-nc-titulo]");
   if (!card) return null;
+  let participantes = [];
+  try {
+    participantes = JSON.parse(card.dataset.participantes || "[]");
+  } catch (erro) {
+    participantes = [];
+  }
   return {
     titulo: card.dataset.ncTitulo,
     descricao: card.dataset.ncDescricao,
@@ -128,8 +113,14 @@ function dadosDaNc(form) {
     notificadoEm: card.dataset.ncNotificadoEm,
     projetoNome: card.dataset.projetoNome,
     responsavelEmail: card.dataset.responsavelEmail,
-    participantes: (card.dataset.participantes || "").split(",").map((e) => e.trim()).filter(Boolean),
+    participantes, // [{ nome, email }, ...]
   };
+}
+
+function _escapeHtml(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto == null ? "" : String(texto);
+  return div.innerHTML;
 }
 
 function abrirModalEmailEquipe(botao) {
@@ -139,6 +130,13 @@ function abrirModalEmailEquipe(botao) {
   if (!dados || !dados.participantes.length) return;
 
   const reabertura = botao.dataset.emailModo === "reabertura";
+  const checkboxesHtml = dados.participantes.map((p, indice) => `
+    <label class="chk-destinatario">
+      <input type="checkbox" class="modal-destinatario" value="${_escapeHtml(p.email)}" checked>
+      ${_escapeHtml(p.nome)} <span class="chk-destinatario-email">(${_escapeHtml(p.email)})</span>
+    </label>
+  `).join("");
+
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.setAttribute("role", "dialog");
@@ -146,6 +144,9 @@ function abrirModalEmailEquipe(botao) {
   overlay.innerHTML = `
     <div class="modal-caixa modal-caixa--largo">
       <p class="modal-titulo">${reabertura ? "Nova solicitação de correção" : "Enviar e-mail à equipe"}</p>
+      <label class="modal-label">Enviar para</label>
+      <div class="modal-destinatarios">${checkboxesHtml}</div>
+      <p class="modal-erro-destinatarios oculto">Selecione ao menos um integrante.</p>
       <p class="modal-mensagem">Para qual data você quer que ocorra a nova atualização?</p>
       <label class="modal-label" for="modal-data">Data e horário da nova atualização</label>
       <input id="modal-data" class="modal-campo" type="datetime-local" required>
@@ -174,6 +175,11 @@ function abrirModalEmailEquipe(botao) {
   overlay.querySelector("#modal-data").focus();
 
   overlay.querySelector("[data-modal-confirmar]").addEventListener("click", async () => {
+    const selecionados = Array.from(overlay.querySelectorAll(".modal-destinatario:checked")).map((el) => el.value);
+    if (!selecionados.length) {
+      overlay.querySelector(".modal-erro-destinatarios").classList.remove("oculto");
+      return;
+    }
     const dataEscolhida = overlay.querySelector("#modal-data").value;
     if (!dataEscolhida) return;
     const prazo = dataEscolhida.replace("T", " ") + ":00";
@@ -202,10 +208,11 @@ function abrirModalEmailEquipe(botao) {
       return;
     }
     const corpo = new URLSearchParams({ prazo_customizado: dataEscolhida });
+    selecionados.forEach((email) => corpo.append("participante_email", email));
     try {
       const resposta = await fetch(botao.dataset.notificarUrl, { method: "POST", body: corpo });
       if (!resposta.ok) throw new Error("Falha ao salvar o novo prazo");
-      janela.location.href = montarLinkGmail(dados.participantes, assunto, linhas.join("\n"));
+      janela.location.href = montarLinkGmail(selecionados, assunto, linhas.join("\n"));
       fechar();
       window.location.reload();
     } catch (erro) {
@@ -214,45 +221,6 @@ function abrirModalEmailEquipe(botao) {
       _mostrarToast("Não foi possível salvar o novo prazo. Tente novamente.", "erro");
     }
   });
-}
-
-// Espelha services/gmail_link.py:texto_notificacao_nc — mesmo texto, gerado
-// no navegador pra abrir o Gmail sem esperar o servidor responder.
-function abrirEmailNotificacao(form) {
-  const dados = dadosDaNc(form);
-  if (!dados || !dados.participantes.length) return;
-  const prazo = calcularPrazoDoForm(form);
-  if (!prazo) return;
-
-  const linhas = [
-    "Olá,", "",
-    `A auditoria de qualidade do projeto "${dados.projetoNome}" identificou a seguinte não `
-      + "conformidade que precisa ser corrigida:", "",
-    "Não conformidade:",
-    `Título: ${dados.titulo}`,
-    `Descrição: ${dados.descricao}`,
-  ];
-  if (dados.evidencia) linhas.push(`Evidência: ${dados.evidencia}`);
-  if (dados.impacto) linhas.push(`Impacto: ${dados.impacto}`);
-  if (dados.acao) linhas.push(`Ação corretiva esperada: ${dados.acao}`);
-  linhas.push(`Prazo limite para envio da correção: ${prazo}`);
-  linhas.push(
-    "",
-    "O não cumprimento do prazo acarretará o escalonamento ao responsável "
-      + `(${dados.responsavelEmail}).`,
-    "", "Atenciosamente,", "Auditoria de Qualidade",
-  );
-
-  const assunto = `[Auditoria de Qualidade] Não Conformidade encontrada - ${dados.projetoNome} - ${dados.titulo}`;
-  const janela = window.open(montarLinkGmail(dados.participantes, assunto, linhas.join("\n")), "_blank", "noopener");
-  if (!janela) {
-    // Popup bloqueado: exibe aviso sem perder o prazo que já foi salvo no servidor.
-    _mostrarToast(
-      "O rascunho de e-mail não pôde ser aberto automaticamente (popup bloqueado). " +
-      "Permita popups para este site e clique no link de e-mail que aparecerá na NC.",
-      "erro"
-    );
-  }
 }
 
 // Espelha services/gmail_link.py:texto_escalonamento_nc. Só existe um
@@ -402,9 +370,7 @@ document.addEventListener("submit", async (evento) => {
     return;
   }
 
-  if (form.classList.contains("form-notificar-nc")) {
-    abrirEmailNotificacao(form);
-  } else if (form.classList.contains("form-escalonar-nc")) {
+  if (form.classList.contains("form-escalonar-nc")) {
     abrirEmailEscalonamento(form);
   }
 

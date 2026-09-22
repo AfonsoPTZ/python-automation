@@ -30,14 +30,25 @@
 /* Lista de projetos (cards). */
 .lista-projetos { display: flex; flex-direction: column; gap: 14px; }
 .projeto-card {
-  display: flex; justify-content: space-between; align-items: center; gap: 16px;
-  flex-wrap: wrap; text-decoration: none; color: inherit;
-  transition: box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+  position: relative;
+  transition: box-shadow .15s ease, border-color .15s ease;
 }
 .projeto-card:hover { box-shadow: 0 4px 14px rgba(20, 30, 50, .08); border-color: #cdd7e6; }
+.projeto-card-link {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  flex-wrap: wrap; text-decoration: none; color: inherit; padding-right: 34px;
+}
 .projeto-card .info { flex: 1; min-width: 220px; }
 .projeto-card h2 { margin: 0 0 4px; font-size: 1.1rem; color: inherit; }
 .projeto-card .meta { color: #7a8494; font-size: .85rem; }
+
+/* Excluir direto do card, sem entrar no projeto — fora do <a>, no canto. */
+.form-excluir-projeto-card { position: absolute; top: 20px; right: 20px; }
+.btn-icone-excluir {
+  background: transparent; border: 0; color: #b0b8c4; font-size: 1.05rem; line-height: 1;
+  padding: 6px; border-radius: 8px; cursor: pointer; transition: color .15s ease, background .15s ease;
+}
+.btn-icone-excluir:hover { color: #a8341f; background: #fdeaea; }
 .projeto-status-area { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .projeto-alertas { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .projeto-resumo { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
@@ -297,3 +308,16 @@ details.nc-editar summary::before { content: ""; }
 .modal-campo:focus { border-color: #2c5090; outline: 2px solid rgba(44, 80, 144, .18); }
 /* Variante mais larga para modais com formulário (pós-escalonamento) */
 .modal-caixa--largo { max-width: 520px; }
+
+/* Checkboxes de "enviar para" (quem recebe o e-mail desta NC) no modal. */
+.modal-destinatarios {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 160px; overflow-y: auto;
+  border: 1px solid #e4e8ee; border-radius: 8px; padding: 10px 12px; margin: 0 0 4px;
+}
+.chk-destinatario {
+  display: flex; align-items: center; gap: 8px; font-size: .87rem; color: #1f2733; cursor: pointer;
+}
+.chk-destinatario input { flex: none; }
+.chk-destinatario-email { color: #7a8494; font-size: .8rem; }
+.modal-erro-destinatarios { color: #a8341f; font-size: .8rem; margin: 4px 0 14px; }

@@ -35,41 +35,48 @@
     {% set auditoria = entrada.auditoria %}
     {% set alertas = entrada.alertas %}
     {% set proximo_prazo = entrada.proximo_prazo %}
-    <a class="card projeto-card" href="{{ url_for('projetos.detalhe', projeto_id=projeto.id) }}">
-      <div class="info">
-        <h2>{{ projeto.nome }}</h2>
-        <p class="meta">Criado em {{ projeto.created_at|formatar_data }} · Responsável: {{ projeto.responsavel_superior_email }}</p>
-        {% if proximo_prazo %}
-          {# Exibe prazo apenas quando urgente (elemento de atenção, não ruído) #}
-          <span class="countdown countdown-neutro" data-prazo="{{ proximo_prazo|iso_datetime }}" style="margin-top:6px; display:inline-flex; font-size:.78rem;"></span>
-        {% endif %}
-      </div>
-      <div class="projeto-status-area">
-        <span class="status-badge {{ projeto.status|status_css }}">{{ projeto.status|status_com_icone }}</span>
-        <div class="projeto-alertas" aria-label="Alertas do projeto">
-          {% if alertas.abertas %}
-            <span class="mini-alerta mini-alerta-info" title="Não conformidades abertas, ainda sem notificação">
-              📋 {{ alertas.abertas }} aberta{{ 's' if alertas.abertas != 1 else '' }}
-            </span>
-          {% endif %}
-          {% if alertas.aguardando %}
-            <span class="mini-alerta mini-alerta-espera" title="Não conformidades aguardando resolução">
-              🕒 {{ alertas.aguardando }} aguardando
-            </span>
-          {% endif %}
-          {% if alertas.escalonadas %}
-            <span class="mini-alerta mini-alerta-perigo" title="Não conformidades escalonadas">
-              🚨 {{ alertas.escalonadas }} escalonada{{ 's' if alertas.escalonadas != 1 else '' }}
-            </span>
-          {% endif %}
-          {% if alertas.vencidos %}
-            <span class="mini-alerta mini-alerta-vencido" title="Não conformidades com prazo expirado">
-              ⚠️ {{ alertas.vencidos }} prazo{{ 's' if alertas.vencidos != 1 else '' }} estourado{{ 's' if alertas.vencidos != 1 else '' }}
-            </span>
+    <div class="card projeto-card">
+      <a class="projeto-card-link" href="{{ url_for('projetos.detalhe', projeto_id=projeto.id) }}">
+        <div class="info">
+          <h2>{{ projeto.nome }}</h2>
+          <p class="meta">Criado em {{ projeto.created_at|formatar_data }} · Responsável: {{ projeto.responsavel_superior_email }}</p>
+          {% if proximo_prazo %}
+            {# Exibe prazo apenas quando urgente (elemento de atenção, não ruído) #}
+            <span class="countdown countdown-neutro" data-prazo="{{ proximo_prazo|iso_datetime }}" style="margin-top:6px; display:inline-flex; font-size:.78rem;"></span>
           {% endif %}
         </div>
-      </div>
-    </a>
+        <div class="projeto-status-area">
+          <span class="status-badge {{ projeto.status|status_css }}">{{ projeto.status|status_com_icone }}</span>
+          <div class="projeto-alertas" aria-label="Alertas do projeto">
+            {% if alertas.abertas %}
+              <span class="mini-alerta mini-alerta-info" title="Não conformidades abertas, ainda sem notificação">
+                📋 {{ alertas.abertas }} aberta{{ 's' if alertas.abertas != 1 else '' }}
+              </span>
+            {% endif %}
+            {% if alertas.aguardando %}
+              <span class="mini-alerta mini-alerta-espera" title="Não conformidades aguardando resolução">
+                🕒 {{ alertas.aguardando }} aguardando
+              </span>
+            {% endif %}
+            {% if alertas.escalonadas %}
+              <span class="mini-alerta mini-alerta-perigo" title="Não conformidades escalonadas">
+                🚨 {{ alertas.escalonadas }} escalonada{{ 's' if alertas.escalonadas != 1 else '' }}
+              </span>
+            {% endif %}
+            {% if alertas.vencidos %}
+              <span class="mini-alerta mini-alerta-vencido" title="Não conformidades com prazo expirado">
+                ⚠️ {{ alertas.vencidos }} prazo{{ 's' if alertas.vencidos != 1 else '' }} estourado{{ 's' if alertas.vencidos != 1 else '' }}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+      <form action="{{ url_for('projetos.excluir', projeto_id=projeto.id) }}" method="post"
+            class="form-excluir-projeto-card" data-ajax="true"
+            data-confirmar="Excluir o projeto &quot;{{ projeto.nome }}&quot;? Isso remove permanentemente todos os documentos, auditorias e não conformidades relacionadas. Essa ação não pode ser desfeita.">
+        <button type="submit" class="btn-icone-excluir" title="Excluir projeto" aria-label="Excluir projeto {{ projeto.nome }}">🗑️</button>
+      </form>
+    </div>
   {% else %}
     <div class="estado-vazio">
       <p class="estado-vazio-titulo">

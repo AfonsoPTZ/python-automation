@@ -7,17 +7,40 @@ body {
   color: #1f2733;
   line-height: 1.55;
 }
+
+/* Acessibilidade: foco visível consistente e utilitário "somente leitor". */
+:focus-visible {
+  outline: 2px solid #2c5090;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: absolute; left: 8px; top: -48px; z-index: 100;
+  background: #fff; color: #1f3a5f; padding: 10px 16px; border-radius: 8px;
+  font-size: .85rem; font-weight: 600; text-decoration: none;
+  transition: top .15s ease;
+}
+.skip-link:focus { top: 8px; }
+
 .topo {
   background: linear-gradient(135deg, #1f3a5f, #2c5090);
   color: #fff;
-  padding: 20px 24px;
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
+  padding: 16px 24px;
 }
+.topo-linha { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .marca { color: #fff; text-decoration: none; font-size: 1.25rem; font-weight: 700; }
 .topo .sub { color: #cfdaeb; font-size: .88rem; }
+.topo-nav { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+.topo-nav a {
+  color: #cfdaeb; text-decoration: none; font-size: .88rem; padding: 4px 2px;
+  border-bottom: 2px solid transparent;
+}
+.topo-nav a:hover { color: #fff; }
+.topo-nav a[aria-current="page"] { color: #fff; font-weight: 700; border-bottom-color: #fff; }
 .container { max-width: 760px; margin: 32px auto; padding: 0 16px; }
 .rodape { text-align: center; padding: 28px; color: #8a93a3; font-size: .82rem; }
 
@@ -32,8 +55,9 @@ body {
 .card.destaque { border-top: 3px solid #2c5090; }
 .card.centro { text-align: center; }
 h1 { font-size: 1.35rem; margin: 0 0 6px; }
-h2 { font-size: 1.05rem; margin: 0 0 14px; }
+h2 { font-size: 1.08rem; margin: 0 0 14px; font-weight: 700; color: #1f2733; }
 
+.tabela-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eef1f5; vertical-align: top; }
 th { background: #f7f9fc; font-weight: 600; color: #4a5568; }
@@ -43,12 +67,30 @@ th { background: #f7f9fc; font-weight: 600; color: #4a5568; }
 input[type="file"] {
   padding: 8px; border: 1px dashed #c7cdd7; border-radius: 8px; background: #fafbfd; font: inherit;
 }
-button {
+button, .btn {
   background: #2c5090; color: #fff; border: 0; border-radius: 8px;
   padding: 10px 20px; font-size: .95rem; font-weight: 600; cursor: pointer;
-  transition: background .15s ease;
+  transition: background .15s ease, transform .1s ease;
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
 }
-button:hover { background: #244474; }
+button:hover, .btn:hover { background: #244474; }
+button:active, .btn:active { transform: translateY(1px); }
+button:disabled { opacity: .7; cursor: progress; }
+button[aria-busy="true"]::after {
+  content: ""; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.5); border-top-color: #fff;
+  animation: girar .6s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+.btn-texto {
+  background: transparent; color: #2c5090; border: 0; padding: 8px 4px;
+  font-size: .88rem; font-weight: 600; text-decoration: underline; cursor: pointer;
+}
+.btn-texto:hover { color: #1f3a5f; }
+.btn-perigo-texto { color: #a8341f; }
+.btn-perigo-texto:hover { color: #7d2617; }
+
 details summary { cursor: pointer; font-size: .95rem; color: #2c5090; list-style: none; }
 details summary::-webkit-details-marker { display: none; }
 details summary::before { content: "▸ "; }
@@ -58,10 +100,38 @@ details table { margin-top: 16px; }
 .dica, .vazio { color: #7a8494; font-size: .9rem; }
 .link-voltar, .link-voltar:visited { display: inline-block; margin-top: 16px; color: #2c5090; text-decoration: none; font-size: .88rem; }
 .link-voltar:hover { text-decoration: underline; }
+.link-voltar-topo {
+  display: inline-block; margin-bottom: 6px; color: #6b7686; text-decoration: none; font-size: .85rem;
+}
+.link-voltar-topo:hover { color: #2c5090; text-decoration: underline; }
 
-.flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: .9rem; }
+/* Feedback de ação como toast flutuante: fica no canto direito, não empurra o
+   conteúdo nem faz a página perder a posição de rolagem em que o usuário
+   estava (o pilha antigo ficava embutido no topo do conteúdo). */
+.flash-pilha {
+  position: fixed; top: 16px; right: 16px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+}
+.flash {
+  padding: 12px 16px; border-radius: 8px; font-size: .9rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: 0 6px 20px rgba(20, 30, 50, .16);
+  animation: flash-entrar .18s ease;
+}
+.flash.flash-saindo { animation: flash-sair .18s ease forwards; }
+@keyframes flash-entrar { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes flash-sair { to { opacity: 0; transform: translateY(-8px); } }
 .flash-ok { background: #e3f7e9; border: 1px solid #a6d8b3; color: #1d7a37; }
 .flash-erro { background: #fdeaea; border: 1px solid #e6a9a9; color: #a8341f; }
+.flash-fechar {
+  background: transparent; border: 0; color: inherit; font-size: 1.1rem; line-height: 1;
+  padding: 0 4px; cursor: pointer; opacity: .6;
+}
+.flash-fechar:hover { opacity: 1; }
+@media (max-width: 480px) {
+  .flash-pilha { right: 8px; top: 8px; left: 8px; width: auto; }
+}
 
 /* Painel de aderência. */
 .painel-aderencia { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; justify-content: center; margin: 18px 0 8px; }

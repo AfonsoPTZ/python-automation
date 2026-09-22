@@ -1,0 +1,81 @@
+{% extends "base_gestor.html" %}
+{% block titulo %}Editar {{ projeto.nome }}{% endblock %}
+
+{% block conteudo %}
+{% set titulo = "Editar projeto" %}
+{% set subtitulo = "Atualize os dados do projeto e os integrantes do grupo auditado." %}
+{% set voltar_url = url_for('projetos.detalhe', projeto_id=projeto.id) %}
+{% set voltar_texto = projeto.nome %}
+{% include "_page_header.html" %}
+
+<div class="card">
+  <form action="{{ url_for('projetos.atualizar', projeto_id=projeto.id) }}" method="post" class="form-gestor">
+    <div>
+      <label for="nome">Nome do projeto</label>
+      <input type="text" id="nome" name="nome" value="{{ projeto.nome }}" required autofocus>
+    </div>
+
+    <div>
+      <label for="descricao">Descrição</label>
+      <textarea id="descricao" name="descricao">{{ projeto.descricao or '' }}</textarea>
+    </div>
+
+    <div>
+      <label for="responsavel_superior_email">E-mail do superior/professor/orientador (escalonamento)</label>
+      <input type="email" id="responsavel_superior_email" name="responsavel_superior_email"
+             value="{{ projeto.responsavel_superior_email }}" required>
+    </div>
+
+    <div>
+      <label>Integrantes atuais</label>
+      {% if participantes %}
+        <ul class="lista-simples lista-participantes-atuais">
+          {% for participante in participantes %}
+            <li>
+              <form action="{{ url_for('projetos.editar_participante', projeto_id=projeto.id, participante_id=participante.id) }}"
+                    method="post" class="linha-participante linha-participante-atual">
+                <input type="text" name="nome" value="{{ participante.nome }}" aria-label="Nome do integrante" required>
+                <input type="email" name="email" value="{{ participante.email }}" aria-label="E-mail do integrante" required>
+                <button type="submit" class="btn-acao btn-acao-salvar">Salvar</button>
+              </form>
+              <form action="{{ url_for('projetos.excluir_participante', projeto_id=projeto.id, participante_id=participante.id) }}"
+                    method="post" class="form-inline form-remover-participante"
+                    data-confirmar="Remover {{ participante.nome }} deste projeto?">
+                <button type="submit" class="btn-acao btn-acao-remover">Remover</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="dica">Nenhum integrante cadastrado ainda.</p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label>Adicionar novos integrantes</label>
+      <div id="lista-participantes" class="lista-participantes-novos">
+        <div class="linha-participante linha-participante-nova">
+          <input type="text" name="participante_nome" placeholder="Nome do integrante">
+          <input type="email" name="participante_email" placeholder="E-mail do integrante">
+          <button type="button" class="btn-remover-linha" aria-label="Remover esta linha" title="Remover">×</button>
+        </div>
+      </div>
+      <button type="button" id="add-participante" class="btn-secundario btn-adicionar">+ Adicionar integrante</button>
+    </div>
+
+    <div class="acoes-linha">
+      <button type="submit" class="btn">Salvar alterações</button>
+      <a href="{{ url_for('projetos.detalhe', projeto_id=projeto.id) }}" class="btn-texto">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<div class="card card-perigo">
+  <h2>Zona de risco</h2>
+  <p class="dica">Excluir o projeto remove permanentemente os integrantes, documentos, auditorias e não conformidades relacionadas. Essa ação não pode ser desfeita.</p>
+  <form action="{{ url_for('projetos.excluir', projeto_id=projeto.id) }}" method="post"
+        data-confirmar="Excluir o projeto &quot;{{ projeto.nome }}&quot;? Isso remove permanentemente todos os documentos, auditorias e não conformidades relacionadas. Essa ação não pode ser desfeita.">
+    <button type="submit" class="btn-perigo">Excluir projeto permanentemente</button>
+  </form>
+</div>
+{% endblock %}

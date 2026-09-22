@@ -7,16 +7,26 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
   <header class="topo">
-    <a href="{{ url_for('index') }}" class="marca">🔍 Auditoria de Qualidade</a>
-    <span class="sub">Teste de Usabilidade</span>
+    <div class="topo-linha">
+      <a href="{{ url_for('ferramenta_rapida') }}" class="marca">🔍 Auditoria de Qualidade</a>
+      <span class="sub">Ferramenta rápida · Teste de Usabilidade</span>
+    </div>
+    <nav class="topo-nav">
+      <a href="{{ url_for('projetos.listar') }}">← Voltar ao Painel do Auditor</a>
+    </nav>
   </header>
 
-  <main class="container">
+  <main class="container" id="conteudo-principal">
     {% with mensagens = get_flashed_messages(with_categories=true) %}
-      {% for categoria, msg in mensagens %}
-        <div class="flash flash-{{ categoria }}">{{ msg }}</div>
-      {% endfor %}
+      {% if mensagens %}
+        <div class="flash-pilha" role="status" aria-live="polite">
+          {% for categoria, msg in mensagens %}
+            <div class="flash flash-{{ categoria }}"><span>{{ msg }}</span></div>
+          {% endfor %}
+        </div>
+      {% endif %}
     {% endwith %}
 
     <section class="card destaque centro">
@@ -25,22 +35,24 @@
       <form action="{{ url_for('auditar_documento') }}" method="post"
             enctype="multipart/form-data" class="form-upload">
         <input type="file" name="documento" accept="application/pdf" required>
-        <button type="submit">Analisar documento</button>
+        <button type="submit" id="btn-analisar">Analisar documento</button>
       </form>
     </section>
 
     <details class="card">
       <summary><strong>Ver checklist</strong> · {{ criterios|length }} critérios</summary>
-      <table>
-        <tbody>
-          {% for criterio in criterios %}
-          <tr>
-            <td class="col-codigo">{{ criterio.codigo }}</td>
-            <td>{{ criterio.descricao }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="tabela-scroll">
+        <table>
+          <tbody>
+            {% for criterio in criterios %}
+            <tr>
+              <td class="col-codigo">{{ criterio.codigo }}</td>
+              <td>{{ criterio.descricao }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </details>
   </main>
 

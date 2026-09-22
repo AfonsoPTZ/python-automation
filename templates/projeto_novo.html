@@ -1,0 +1,47 @@
+{% extends "base_gestor.html" %}
+{% block titulo %}Novo projeto{% endblock %}
+
+{% block conteudo %}
+{% set titulo = "Novo projeto" %}
+{% set subtitulo = "Cadastre o projeto, os integrantes do grupo auditado e o responsável para escalonamento." %}
+{% set voltar_url = url_for('projetos.listar') %}
+{% set voltar_texto = "Projetos" %}
+{% include "_page_header.html" %}
+
+<div class="card">
+  <form action="{{ url_for('projetos.criar') }}" method="post" class="form-gestor">
+    <div>
+      <label for="nome">Nome do projeto</label>
+      <input type="text" id="nome" name="nome" required autofocus>
+    </div>
+
+    <div>
+      <label for="descricao">Descrição</label>
+      <textarea id="descricao" name="descricao"></textarea>
+    </div>
+
+    <div>
+      <label for="responsavel_superior_email">E-mail do superior/professor/orientador (escalonamento)</label>
+      <input type="email" id="responsavel_superior_email" name="responsavel_superior_email" required>
+    </div>
+
+    <div>
+      <label>Integrantes do grupo auditado</label>
+      <p class="dica" style="margin-top:0;">Opcional aqui — dá para adicionar depois na tela do projeto.</p>
+      <div id="lista-participantes">
+        <div class="linha-participante">
+          <input type="text" name="participante_nome" placeholder="Nome do integrante">
+          <input type="email" name="participante_email" placeholder="E-mail do integrante">
+          <button type="button" class="btn-remover-linha" aria-label="Remover esta linha" title="Remover">×</button>
+        </div>
+      </div>
+      <button type="button" id="add-participante" class="btn-secundario">+ Adicionar integrante</button>
+    </div>
+
+    <div class="acoes-linha">
+      <button type="submit" class="btn">Criar projeto</button>
+      <a href="{{ url_for('projetos.listar') }}" class="btn-texto">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

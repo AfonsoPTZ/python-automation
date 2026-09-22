@@ -7,12 +7,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
   <header class="topo">
-    <a href="{{ url_for('index') }}" class="marca">🔍 Auditoria de Qualidade</a>
-    <span class="sub">Teste de Usabilidade</span>
+    <div class="topo-linha">
+      <a href="{{ url_for('ferramenta_rapida') }}" class="marca">🔍 Auditoria de Qualidade</a>
+      <span class="sub">Ferramenta rápida · Teste de Usabilidade</span>
+    </div>
+    <nav class="topo-nav">
+      <a href="{{ url_for('projetos.listar') }}">← Voltar ao Painel do Auditor</a>
+    </nav>
   </header>
 
-  <main class="container">
+  <main class="container" id="conteudo-principal">
     {% set classe_aderencia = 'ok' if resultado.aderencia >= 80 else 'alerta' if resultado.aderencia >= 50 else 'ruim' %}
 
     <section class="card destaque">
@@ -27,7 +33,7 @@
           em {{ resultado.total_criterios }} critérios.
         </p>
       </div>
-      <a href="{{ url_for('index') }}" class="link-voltar">← nova auditoria</a>
+      <a href="{{ url_for('ferramenta_rapida') }}" class="link-voltar">← nova auditoria</a>
     </section>
 
     <section class="card">
@@ -51,18 +57,20 @@
 
     <details class="card">
       <summary><strong>Ver checklist completo</strong> · {{ resultado.total_criterios }} critérios</summary>
-      <table>
-        <thead><tr><th>Código</th><th>Critério</th><th>Situação</th></tr></thead>
-        <tbody>
-          {% for item in resultado.itens %}
-          <tr>
-            <td class="col-codigo">{{ item.codigo }}</td>
-            <td>{{ item.descricao }}</td>
-            <td><span class="badge badge-{{ 'cf' if item.status == 'CF' else 'na' if item.status == 'N/A' else 'nc' }}">{{ item.status }}</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="tabela-scroll">
+        <table>
+          <thead><tr><th>Código</th><th>Critério</th><th>Situação</th></tr></thead>
+          <tbody>
+            {% for item in resultado.itens %}
+            <tr>
+              <td class="col-codigo">{{ item.codigo }}</td>
+              <td>{{ item.descricao }}</td>
+              <td><span class="badge badge-{{ 'cf' if item.status == 'CF' else 'na' if item.status == 'N/A' else 'nc' }}">{{ item.status }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </details>
   </main>
 

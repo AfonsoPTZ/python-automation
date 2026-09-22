@@ -21,7 +21,10 @@ _INSTRUCAO_SISTEMA = (
     "documento esta conforme (CF), nao conforme (NC) ou nao aplicavel (N/A), "
     "e cite uma evidencia curta e especifica extraida do proprio texto do "
     "documento (ou explique objetivamente a ausencia). Baseie-se somente no "
-    "conteudo do documento fornecido, nao invente evidencias."
+    "conteudo do documento fornecido, nao invente evidencias. Escreva sempre "
+    "em linguagem simples e direta, como se estivesse explicando o problema "
+    "para o proprio grupo que fez o trabalho, nao para outro auditor — evite "
+    "jargao tecnico de auditoria sempre que houver uma forma mais clara de dizer."
 )
 
 _ESQUEMA_RESPOSTA = {
@@ -43,17 +46,59 @@ _ESQUEMA_RESPOSTA = {
     "required": ["itens"],
 }
 
+# Esquema estendido, usado pelo Painel do Auditor: além do status e da evidência,
+# pede um título curto, o impacto e a ação corretiva esperada para cada item
+# não conforme (usados para montar as Não Conformidades - NCs).
+_ESQUEMA_RESPOSTA_NC = {
+    "type": "object",
+    "properties": {
+        "itens": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "codigo": {"type": "string"},
+                    "status": {"type": "string", "enum": sorted(_STATUS_VALIDOS)},
+                    "evidencia": {"type": "string"},
+                    "titulo": {"type": "string"},
+                    "impacto": {"type": "string"},
+                    "acao_corretiva": {"type": "string"},
+                },
+                # "titulo" é obrigatório mesmo quando N/A ou CF: sem isso, o item
+                # herdaria como título o texto formal do critério do checklist
+                # (ex.: "Verificar aderência às heurísticas de Nielsen"), que é
+                # jargão de auditoria, não algo que o grupo avaliado entenda de cara.
+                "required": ["codigo", "status", "evidencia", "titulo"],
+            },
+        },
+    },
+    "required": ["itens"],
+}
 
-def _montar_prompt(texto_documento):
+
+def _montar_prompt(texto_documento, incluir_nc=False):
     checklist = "\n".join(
         f'{criterio["codigo"]} ({criterio["categoria"]}): {criterio["descricao"]}'
         for criterio in CRITERIOS
+    )
+    instrucao_extra = (
+        " Para todo item, preencha 'titulo': uma frase curta e direta, em "
+        "linguagem simples, que qualquer integrante do grupo avaliado (sem "
+        "formacao em auditoria) entenda de imediato — descreva o problema "
+        "encontrado, nao repita o nome tecnico do criterio do checklist. "
+        "Para cada item avaliado como NC (nao conforme), preencha tambem: "
+        "'impacto' (por que isso e um problema para a qualidade do trabalho, "
+        "em linguagem simples) e 'acao_corretiva' (o que o grupo precisa fazer "
+        "para corrigir, de forma pratica e objetiva)."
+        if incluir_nc
+        else ""
     )
     return (
         f'Checklist do "{NOME}":\n{checklist}\n\n'
         f'Documento avaliado:\n"""\n{texto_documento}\n"""\n\n'
         "Avalie o documento contra cada item do checklist e devolva um item "
         "de resultado para cada codigo, na mesma ordem em que aparecem."
+        f"{instrucao_extra}"
     )
 
 
@@ -66,7 +111,7 @@ def _cliente():
 
 # Chama a IA, repetindo com espera crescente se o modelo estiver sobrecarregado (503).
 # Cota esgotada (429) não é repetida: tentar de novo não resolve e só consome mais cota.
-def _gerar_com_retentativas(cliente, prompt):
+def _gerar_com_retentativas(cliente, prompt, esquema=_ESQUEMA_RESPOSTA):
     for tentativa in range(1, _TENTATIVAS + 1):
         try:
             return cliente.models.generate_content(
@@ -75,7 +120,7 @@ def _gerar_com_retentativas(cliente, prompt):
                 config=types.GenerateContentConfig(
                     system_instruction=_INSTRUCAO_SISTEMA,
                     response_mime_type="application/json",
-                    response_schema=_ESQUEMA_RESPOSTA,
+                    response_schema=esquema,
                 ),
             )
         except errors.ClientError as erro:
@@ -92,11 +137,30 @@ def _gerar_com_retentativas(cliente, prompt):
             time.sleep(_ESPERA_BASE_SEGUNDOS * tentativa)
 
 
+# Interpreta o JSON devolvido pela IA. Cobre os casos em que o modelo não
+# retornou um candidato válido (bloqueio de segurança, resposta vazia) ou
+# devolveu um JSON fora do esquema esperado — nesses casos, uma mensagem
+# clara em vez de deixar o KeyError/ValueError estourar sem contexto.
+def _interpretar_resposta(resposta):
+    texto = getattr(resposta, "text", None)
+    if not texto:
+        raise RuntimeError(
+            "A IA não retornou uma resposta válida (pode ter sido bloqueada "
+            "pelos filtros de segurança do modelo). Tente novamente."
+        )
+    try:
+        dados = json.loads(texto)
+        return {item["codigo"]: item for item in dados.get("itens", []) if "codigo" in item}
+    except (json.JSONDecodeError, AttributeError, TypeError) as erro:
+        raise RuntimeError(
+            "A IA retornou uma resposta em formato inesperado. Tente novamente."
+        ) from erro
+
+
 # Envia o checklist e o texto do documento para a IA e devolve a lista de resultados.
 def avaliar_com_ia(texto_documento):
     resposta = _gerar_com_retentativas(_cliente(), _montar_prompt(texto_documento))
-    dados = json.loads(resposta.text)
-    resultados_por_codigo = {item["codigo"]: item for item in dados.get("itens", [])}
+    resultados_por_codigo = _interpretar_resposta(resposta)
 
     itens = []
     for criterio in CRITERIOS:
@@ -109,5 +173,33 @@ def avaliar_com_ia(texto_documento):
             "status": status if status in _STATUS_VALIDOS else "NC",
             "evidencia": (resultado.get("evidencia") if resultado else None)
             or "A IA nao retornou avaliacao para este criterio.",
+        })
+    return itens
+
+
+# Igual a avaliar_com_ia, mas também pede título, impacto e ação corretiva
+# para os itens não conformes — usado pelo Painel do Auditor (QA Audit Manager)
+# para gerar as Não Conformidades (NCs) de um projeto.
+def avaliar_projeto_com_ia(texto_documento):
+    prompt = _montar_prompt(texto_documento, incluir_nc=True)
+    resposta = _gerar_com_retentativas(_cliente(), prompt, esquema=_ESQUEMA_RESPOSTA_NC)
+    resultados_por_codigo = _interpretar_resposta(resposta)
+
+    itens = []
+    for criterio in CRITERIOS:
+        resultado = resultados_por_codigo.get(criterio["codigo"])
+        status = resultado.get("status") if resultado else None
+        status = status if status in _STATUS_VALIDOS else "NC"
+        itens.append({
+            "codigo": criterio["codigo"],
+            "categoria": criterio["categoria"],
+            "descricao": criterio["descricao"],
+            "status": status,
+            "evidencia": (resultado.get("evidencia") if resultado else None)
+            or "A IA nao retornou avaliacao para este criterio.",
+            "titulo": (resultado.get("titulo") if resultado else None)
+            or (criterio["descricao"] if status == "NC" else None),
+            "impacto": resultado.get("impacto") if resultado else None,
+            "acao_corretiva": resultado.get("acao_corretiva") if resultado else None,
         })
     return itens

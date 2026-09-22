@@ -1,0 +1,299 @@
+/* Estilos do Painel do Auditor (QA Audit Manager): dashboard, prazos e NCs. */
+.container-largo { max-width: 1080px; }
+
+/* Cabeçalho padrão de página (título + subtítulo + ação principal). */
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.page-header h1 { margin: 0 0 4px; }
+.page-header-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+@media (max-width: 640px) {
+  .page-header-acoes { align-items: flex-start; width: 100%; }
+}
+
+/* Busca de projetos. */
+.form-busca { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.form-busca input[type="search"] {
+  flex: 1; min-width: 200px; padding: 9px 12px; border: 1px solid #d7dce4; border-radius: 8px; font: inherit;
+}
+
+/* Filtros de status na listagem. */
+.filtros-status { display: flex; gap: 8px; flex-wrap: wrap; }
+.filtro-chip {
+  padding: 6px 14px; border-radius: 999px; font-size: .82rem; text-decoration: none;
+  background: #eef0f3; color: #4a5568; border: 1px solid transparent; transition: background .15s ease;
+}
+.filtro-chip:hover { background: #e0e4ea; }
+.filtro-chip.ativo { background: #2c5090; color: #fff; }
+
+/* Lista de projetos (cards). */
+.lista-projetos { display: flex; flex-direction: column; gap: 14px; }
+.projeto-card {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  flex-wrap: wrap; text-decoration: none; color: inherit;
+  transition: box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+}
+.projeto-card:hover { box-shadow: 0 4px 14px rgba(20, 30, 50, .08); border-color: #cdd7e6; }
+.projeto-card .info { flex: 1; min-width: 220px; }
+.projeto-card h2 { margin: 0 0 4px; font-size: 1.1rem; color: inherit; }
+.projeto-card .meta { color: #7a8494; font-size: .85rem; }
+.projeto-status-area { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.projeto-alertas { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.projeto-resumo { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.mini-alerta {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px;
+  border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap;
+}
+.mini-alerta-perigo { background: #fdeaea; color: #a8341f; }
+.mini-alerta-espera { background: #fdf1d6; color: #8a6100; }
+.mini-alerta-info { background: #eef3fb; color: #3a5a8c; }
+.mini-alerta-vencido { background: #fff0eb; color: #a8341f; }
+@media (max-width: 640px) {
+  .projeto-status-area { align-items: flex-start; width: 100%; }
+  .projeto-alertas { justify-content: flex-start; }
+}
+
+/* Estado vazio rico: explica o que está vazio e o que fazer a seguir. */
+.estado-vazio {
+  background: #fff; border: 1px dashed #d7dce4; border-radius: 12px;
+  padding: 40px 24px; text-align: center;
+}
+.estado-vazio-titulo { font-size: 1.05rem; font-weight: 700; color: #1f2733; margin: 0 0 6px; }
+.estado-vazio .dica { margin: 0 0 16px; }
+
+/* Badges de status do projeto/auditoria. */
+.status-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700; white-space: nowrap;
+}
+.status-em-auditoria { background: #e6ecf7; color: #2c5090; }
+.status-aguardando-correcao { background: #fdf1d6; color: #8a6100; }
+.status-escalonado, .status-escalonado-prazo-vencido { background: #fdeaea; color: #a8341f; animation: piscar 1.4s infinite; }
+.status-encerrado { background: #eef0f3; color: #4a5568; }
+
+@keyframes piscar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+/* Contador regressivo de prazo. */
+.countdown {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+  border-radius: 999px; font-size: .82rem; font-weight: 700; white-space: nowrap;
+}
+.countdown-ok { background: #e3f7e9; color: #1d7a37; }
+.countdown-alerta { background: #fdf1d6; color: #8a6100; }
+.countdown-vencido { background: #fdeaea; color: #a8341f; animation: piscar 1.2s infinite; }
+.countdown-neutro { background: #eef0f3; color: #6b7686; }
+
+/* Formulários do gestor. */
+.form-gestor { display: flex; flex-direction: column; gap: 14px; }
+.form-gestor label { font-size: .85rem; font-weight: 600; color: #4a5568; display: block; margin-bottom: 4px; }
+.form-gestor input[type="text"], .form-gestor input[type="email"],
+.form-gestor input[type="datetime-local"], .form-gestor textarea, .form-gestor select {
+  width: 100%; padding: 9px 12px; border: 1px solid #d7dce4; border-radius: 8px; font: inherit;
+}
+.form-gestor textarea { min-height: 70px; resize: vertical; }
+.form-inline { display: inline-flex; }
+.linha-participante { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+.linha-participante input { flex: 1; }
+.linha-participante-atual { min-width: 0; }
+.linha-participante-atual input:first-child { flex: 0 1 34%; }
+.linha-participante-atual input:nth-child(2) { flex: 1 1 46%; }
+
+/* Integrantes já cadastrados: nome/e-mail editáveis inline, Salvar e Remover lado a lado. */
+.lista-participantes-atuais li {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: #f7f9fc; border-radius: 8px; padding: 8px 10px;
+}
+.lista-participantes-atuais .linha-participante { flex: 1; margin-bottom: 0; min-width: 240px; }
+.lista-participantes-atuais input { padding: 7px 10px; }
+.form-remover-participante { flex: none; }
+.btn-acao {
+  border: 0; border-radius: 8px; padding: 8px 14px; min-height: 36px;
+  font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+}
+.btn-acao-salvar { background: #2c5090; color: #fff; }
+.btn-acao-salvar:hover { background: #244474; }
+.btn-acao-remover { background: #fdeaea; color: #a8341f; }
+.btn-acao-remover:hover { background: #f8d8d8; }
+.btn-adicionar { margin-top: 4px; }
+.btn-remover-linha {
+  background: transparent; color: #a8341f; border: 1px solid #e6a9a9; border-radius: 8px;
+  width: 34px; height: 34px; flex: none; font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.btn-remover-linha:hover { background: #fdeaea; }
+@media (max-width: 700px) {
+  .linha-participante-atual { display: grid; grid-template-columns: 1fr 1fr auto; }
+  .linha-participante-atual input:first-child,
+  .linha-participante-atual input:nth-child(2) { min-width: 0; }
+}
+
+.btn-secundario {
+  background: #eef0f3; color: #2c5090; border: 0; border-radius: 8px;
+  padding: 8px 16px; font-size: .88rem; font-weight: 600; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s ease;
+}
+.btn-secundario:hover { background: #e0e4ea; }
+/* Ação destrutiva: vermelho — manter para exclusões e escalonamentos */
+.btn-perigo { background: #c53b3b; color: #fff; }
+.btn-perigo:hover { background: #a52f2f; }
+/* Editar: neutro cinza-escuro — edição NÃO é alerta, não deve ser amarelo */
+.btn-editar { background: #4a5568; color: #fff; }
+.btn-editar:hover { background: #3a4254; }
+/* E-mail/Gmail: azul complementar para ação de comunicação */
+.btn-email { background: #1a6fad; color: #fff; }
+.btn-email:hover { background: #155e92; }
+
+/* Zona de risco (exclusão de projeto). */
+.card-perigo { border-color: #f3caca; }
+.card-perigo h2 { color: #a8341f; }
+
+/* Linhas de lista com uma ação secundária à direita (remover documento/integrante). */
+.linha-lista-acao { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Link que abre o e-mail pré-preenchido no Gmail (o envio é sempre manual). */
+.btn-gmail {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; color: #c5221f; border: 1px solid #c5221f; border-radius: 8px;
+  padding: 9px 18px; font-size: .88rem; font-weight: 700; text-decoration: none;
+  margin-top: 10px; transition: background .15s ease;
+}
+.btn-gmail:hover { background: #fdeceb; }
+.btn-gmail-pequeno { padding: 6px 14px; font-size: .8rem; margin-top: 0; }
+.acoes-linha { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Utilitário: esconde um elemento (revelado via JS quando um prazo vence). */
+.oculto { display: none !important; }
+
+/* Bloco de prazo/notificação/escalonamento embutido em cada NC — ação
+   principal da NC aberta, por isso fica visível (não atrás de um "detalhes"),
+   com o botão em destaque igual às outras ações primárias da tela. */
+.nc-prazo {
+  margin: 10px 0; padding: 10px 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  background: #f7f9fc; border-radius: 8px;
+}
+.nc-prazo-label { font-size: .82rem; color: #4a5568; font-weight: 600; }
+.form-notificar-nc, .form-escalonar-nc { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.form-notificar-nc select, .form-notificar-nc input[type="datetime-local"] {
+  padding: 7px 10px; border: 1px solid #d7dce4; border-radius: 8px; font: inherit; font-size: .85rem;
+}
+.btn-enviar-email { padding: 8px 16px; }
+
+/* Badge neutro (informativo, não é alerta nem sucesso). */
+.badge-info { background: #eef3fb; color: #3a5a8c; }
+
+/* "Fechar auditoria": ação final e irreversível — bordô discreto para
+   diferenciar de ação comum SEM parecer alerta (âmbar = espera, não ação final). */
+.card-final { border-top: 3px solid #7b3f6e; }
+.card-final h2 { margin: 0; }
+.btn-final { background: #6b3360; }
+.btn-final:hover { background: #562850; }
+
+/* Grade de seções no detalhe do projeto. */
+.grade-detalhe { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+@media (max-width: 820px) { .grade-detalhe { grid-template-columns: 1fr; } }
+
+.lista-simples { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lista-simples li { padding: 8px 10px; border-radius: 8px; background: #f7f9fc; font-size: .88rem; }
+
+/* Cartões de Não Conformidade. */
+.nc-card { border: 1px solid #eef1f5; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.nc-card.resolvida { opacity: .6; }
+.nc-card-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.nc-card h3 { margin: 0; font-size: 1rem; }
+.nc-campo { margin: 8px 0 0; font-size: .87rem; }
+.nc-campo strong { color: #4a5568; }
+.badge-origem { font-size: .72rem; padding: 2px 8px; border-radius: 999px; background: #eef0f3; color: #6b7686; }
+.badge-resolvida { background: #e3f7e9; color: #1d7a37; }
+.badge-aberta { background: #fdeaea; color: #a8341f; }
+
+details.nc-editar { margin: 0; }
+details.nc-editar summary { cursor: pointer; list-style: none; }
+details.nc-editar summary::-webkit-details-marker { display: none; }
+details.nc-editar summary::before { content: ""; }
+
+/* ── Linha de ações das NCs ──────────────────────────────────────────────
+   Layout em dois grupos:
+   ESQUERDA (principais): Marcar como resolvida + Enviar e-mail → flex: 1, crescem juntos
+   DIREITA  (secundários): Editar + Excluir → largura fixa idêntica (92px cada)
+   Os <form> viram display:flex para o <button> dentro preencher 100% do espaço.
+   ──────────────────────────────────────────────────────────────────────── */
+.nc-acoes { align-items: stretch; }
+
+.nc-acoes > form { display: flex; }
+
+/* Marcar como resolvida/pendente — principal esquerda */
+.nc-acoes > form:first-child { flex: 1 1 0; min-width: 130px; }
+.nc-acoes > form:first-child > button { flex: 1; justify-content: center; }
+
+/* Enviar e-mail — principal esquerda */
+.nc-acoes > .btn-email { flex: 1 1 0; justify-content: center; min-width: 100px; }
+
+/* Editar — secundário direita, largura fixa */
+.nc-acoes > details:not([open]) { flex: 0 0 92px; }
+.nc-acoes > details > summary { width: 100%; justify-content: center; box-sizing: border-box; }
+
+/* Excluir — secundário direita, mesma largura fixa que Editar */
+.nc-acoes > form:last-child { flex: 0 0 92px; }
+.nc-acoes > form:last-child > button { flex: 1; justify-content: center; }
+
+/* Editar aberto: ocupa a linha inteira (formulário inline de edição) */
+.nc-acoes > details.nc-editar[open] { flex: 0 0 100%; }
+
+/* Badges de aderência com cor semântica por faixa de resultado. */
+.badge-aderencia-ok { background: #e3f7e9; color: #1d7a37; }
+.badge-aderencia-alerta { background: #fdf1d6; color: #8a6100; }
+.badge-aderencia-ruim { background: #fdeaea; color: #a8341f; }
+
+/* Separador "ou" entre campo de horas e data customizada no form de NC. */
+.prazo-separador {
+  font-size: .78rem; color: #7a8494; font-weight: 600; white-space: nowrap;
+  padding: 0 2px;
+}
+
+/* Separação visual entre upload de documento e botão de auditoria IA. */
+.divisor-acao {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 0; color: #b0b8c4; font-size: .78rem;
+}
+.divisor-acao::before, .divisor-acao::after {
+  content: ""; flex: 1; height: 1px; background: #e4e8ee;
+}
+
+/* Modal de confirmação customizado — substitui window.confirm() nativo. */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(20, 30, 50, .45);
+  z-index: 2000; display: flex; align-items: center; justify-content: center;
+  animation: modal-entrar .15s ease;
+}
+.modal-overlay.modal-saindo { animation: modal-sair .15s ease forwards; }
+@keyframes modal-entrar { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-sair { to { opacity: 0; } }
+.modal-caixa {
+  background: #fff; border-radius: 12px; padding: 28px 28px 20px;
+  max-width: 420px; width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(20, 30, 50, .22);
+  animation: modal-subir .15s ease;
+}
+@keyframes modal-subir { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-titulo {
+  font-size: 1rem; font-weight: 700; color: #1f2733; margin: 0 0 10px;
+}
+.modal-mensagem {
+  font-size: .9rem; color: #4a5568; margin: 0 0 22px; line-height: 1.55;
+}
+.modal-acoes { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.modal-label {
+  font-size: .83rem; font-weight: 600; color: #4a5568; display: block; margin-bottom: 2px;
+}
+.modal-campo {
+  width: 100%; padding: 9px 10px; margin: 0 0 12px;
+  border: 1px solid #d7dce4; border-radius: 8px; font: inherit;
+}
+.modal-campo:focus { border-color: #2c5090; outline: 2px solid rgba(44, 80, 144, .18); }
+/* Variante mais larga para modais com formulário (pós-escalonamento) */
+.modal-caixa--largo { max-width: 520px; }

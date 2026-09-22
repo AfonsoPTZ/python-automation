@@ -2,10 +2,21 @@
 
 Projeto acadêmico da disciplina de **Qualidade de Software**.
 
-A aplicação recebe um **Relatório de Teste de Usabilidade** em PDF, envia o
-texto extraído junto com o checklist padrão da disciplina (30 critérios) para
-uma IA (Gemini), e devolve as **Não Conformidades (NCs)** encontradas, junto
-com a % de aderência.
+A aplicação tem duas partes:
+
+1. **Ferramenta rápida** (`/`): recebe um PDF, avalia contra o checklist
+   padrão da disciplina (30 critérios) via IA (Gemini) e mostra o resultado —
+   nada é salvo em disco ou banco.
+2. **Painel do Auditor** (`/projetos`): gerencia projetos/auditorias de ponta
+   a ponta — cadastro de projetos e integrantes, upload de documentos,
+   avaliação por IA com geração de Não Conformidades (título, evidência,
+   impacto e ação corretiva), envio de e-mail de notificação com prazo (SLA),
+   contador regressivo de prazo, escalonamento automático (via rotina
+   agendada) ou manual ao superior/orientador, reavaliação e fechamento com
+   parecer final.
+
+A análise é feita **por uma IA** (Google Gemini), que julga cada critério com
+base no conteúdo do(s) documento(s).
 
 A análise é feita **por uma IA** (Google Gemini), que julga cada critério com
 base no conteúdo do documento. O documento é processado em memória: **nada é
@@ -25,26 +36,42 @@ CF ÷ (CF + NC).
 
 ## Tecnologias
 
-| Camada         | Tecnologia            |
-|----------------|------------------------|
-| Front-end      | HTML, CSS, JavaScript |
-| Back-end       | Python + Flask        |
-| Leitura de PDF | pypdf                 |
-| Avaliação      | Google Gemini (`google-genai`) |
+| Camada          | Tecnologia                                |
+|-----------------|--------------------------------------------|
+| Front-end       | HTML, CSS, JavaScript (server-rendered)    |
+| Back-end        | Python + Flask                             |
+| Banco de dados  | SQLite (`sqlite3` da stdlib)               |
+| Upload          | `werkzeug`/Flask (`request.files`)         |
+| Leitura de docs | pypdf, python-docx, openpyxl               |
+| Avaliação       | Google Gemini (`google-genai`)             |
+| E-mail          | link "Redigir" do Gmail pré-preenchido (nenhum envio automático) |
+| Agendamento     | APScheduler (verificação de SLA)           |
 
 ## Estrutura
 
 ```
-app.py                → aplicação Flask: rotas e ligação com o motor de auditoria
-auditoria/             → motor de auditoria
-  leitura_pdf.py       → extrai o texto do PDF
-  criterios.py         → os 30 critérios do checklist padrão da disciplina
-  ia.py                → monta o prompt, chama o Gemini e interpreta o JSON de resposta
-  checklist.py         → orquestra a extração + avaliação e calcula a aderência
-templates/             → páginas HTML (Jinja2): index e resultado
-static/                → style.css e app.js
-requirements.txt       → dependências Python
-.env                   → GEMINI_API_KEY (não versionado)
+app.py                    → cria a app Flask, registra blueprints e a rotina agendada
+config.py                 → configuração (banco, uploads, SLA) via variáveis de ambiente
+database.py                → conexão SQLite e inicialização do schema
+schema.sql                 → tabelas: projetos, participantes, documentos, auditorias,
+                              nao_conformidades, logs_emails
+auditoria/                 → motor de auditoria
+  leitura_pdf.py           → extrai texto de PDF (ferramenta rápida)
+  leitura_documentos.py    → extrai texto de pdf/docx/xlsx/txt (Painel do Auditor)
+  criterios.py             → os 30 critérios do checklist padrão da disciplina
+  ia.py                    → monta o prompt, chama o Gemini e interpreta o JSON de resposta
+  checklist.py             → orquestra a extração + avaliação e calcula a aderência
+routes/                    → blueprints Flask: projetos, auditorias (encerrar), nc (notificar/escalonar
+                              por NC individual, editar, excluir)
+services/
+  gmail_link.py             → monta o texto pronto (sem IA) e o link "Redigir" do Gmail, por NC
+  scheduler.py              → rotina periódica que marca NCs com prazo vencido como escalonadas
+templates/                  → páginas HTML (Jinja2): ferramenta rápida + Painel do Auditor
+static/                     → style.css/app.js (ferramenta rápida) e gestor.css/gestor.js (painel)
+uploads/<id_projeto>/       → documentos enviados por projeto (não versionado)
+data/qa_audit.db            → banco SQLite (não versionado)
+requirements.txt            → dependências Python
+.env                         → configuração local (não versionado, veja `.env.example`)
 ```
 
 ## Como executar
@@ -56,11 +83,13 @@ venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 ```
 
-Crie um arquivo `.env` na raiz com sua chave da API do Gemini:
-
-```
-GEMINI_API_KEY=sua-chave-aqui
-```
+Copie `.env.example` para `.env` e preencha `GEMINI_API_KEY`. **Não há
+configuração de SMTP/senha**: o sistema nunca envia e-mail sozinho. Depois de
+revisar as NCs e definir o prazo, o Painel do Auditor monta um link "Redigir"
+do Gmail com destinatário, assunto e corpo já prontos (texto fixo, montado em
+código — sem gastar token de IA a cada envio); o auditor só abre o link e
+clica em enviar, pela própria conta dele. O mesmo vale para o e-mail de
+escalonamento (manual ou quando o prazo vence automaticamente).
 
 Depois:
 
@@ -68,7 +97,9 @@ Depois:
 py app.py
 ```
 
-Acesse <http://localhost:5000>, envie o PDF e veja o resultado da auditoria.
+O banco SQLite (`data/qa_audit.db`) é criado automaticamente na primeira
+execução. Acesse <http://localhost:5000> para a ferramenta rápida (1 PDF por
+vez) ou <http://localhost:5000/projetos> para o Painel do Auditor.
 
 ## Como a análise é feita (e suas limitações)
 

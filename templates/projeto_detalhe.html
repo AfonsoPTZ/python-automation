@@ -1,0 +1,272 @@
+{% extends "base_gestor.html" %}
+{% block titulo %}{{ projeto.nome }}{% endblock %}
+
+{% block conteudo %}
+{% set voltar_url = url_for('projetos.listar') %}
+{% set voltar_texto = "Projetos" %}
+<div class="page-header">
+  <div class="page-header-texto">
+    <a href="{{ voltar_url }}" class="link-voltar-topo">← {{ voltar_texto }}</a>
+    <h1>{{ projeto.nome }}</h1>
+    <p class="dica">{{ projeto.descricao or "Sem descrição." }}</p>
+    <p class="meta">Responsável para escalonamento: {{ projeto.responsavel_superior_email }}</p>
+    {% set total_alertas = resumo_nc.abertas + resumo_nc.escalonadas + resumo_nc.aguardando + resumo_nc.vencidas %}
+    {% if total_alertas > 0 %}
+      <div class="projeto-resumo" aria-label="Resumo das não conformidades">
+        {% if resumo_nc.abertas %}
+          <span class="mini-alerta mini-alerta-info">📋 {{ resumo_nc.abertas }} aberta{{ 's' if resumo_nc.abertas != 1 else '' }}</span>
+        {% endif %}
+        {% if resumo_nc.escalonadas %}
+          <span class="mini-alerta mini-alerta-perigo">🚨 {{ resumo_nc.escalonadas }} escalonada{{ 's' if resumo_nc.escalonadas != 1 else '' }}</span>
+        {% endif %}
+        {% if resumo_nc.aguardando %}
+          <span class="mini-alerta mini-alerta-espera">🕒 {{ resumo_nc.aguardando }} aguardando</span>
+        {% endif %}
+        {% if resumo_nc.vencidas %}
+          <span class="mini-alerta mini-alerta-vencido">⚠️ {{ resumo_nc.vencidas }} prazo{{ 's' if resumo_nc.vencidas != 1 else '' }} estourado{{ 's' if resumo_nc.vencidas != 1 else '' }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  <div class="page-header-acoes">
+    <a href="{{ url_for('projetos.editar', projeto_id=projeto.id) }}" class="btn-secundario">Editar projeto</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Integrantes</h2>
+  {% if participantes %}
+    <ul class="lista-simples">
+      {% for participante in participantes %}
+        <li>{{ participante.nome }} — {{ participante.email }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="vazio">Nenhum integrante cadastrado. <a href="{{ url_for('projetos.editar', projeto_id=projeto.id) }}">Adicionar agora</a>.</p>
+  {% endif %}
+</div>
+
+<div class="grade-detalhe">
+  <div>
+    <div class="card">
+      <h2>Documentos</h2>
+      {% if documentos %}
+        <ul class="lista-simples">
+          {% for documento in documentos %}
+            {% set rotulo = 'Documento auditado' if (auditoria_atual and auditoria_atual.status == 'encerrada' and documento.versao == versao_maxima) else 'Documento ' ~ documento.versao %}
+            <li class="linha-lista-acao">
+              <span>
+                <span class="badge-origem {{ 'badge-resolvida' if rotulo == 'Documento auditado' else '' }}">{{ rotulo }}</span>
+                {{ documento.nome_original }}
+                <span class="meta">— enviado em {{ documento.uploaded_at|formatar_data }}</span>
+              </span>
+              <form action="{{ url_for('projetos.excluir_documento', projeto_id=projeto.id, documento_id=documento.id) }}"
+                    method="post" class="form-inline" data-ajax="true"
+                    data-confirmar="Remover o documento &quot;{{ documento.nome_original }}&quot;? O arquivo enviado será apagado.">
+                <button type="submit" class="btn-texto btn-perigo-texto">Remover</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="vazio">Nenhum documento enviado ainda. Envie o arquivo abaixo para poder rodar a auditoria.</p>
+      {% endif %}
+
+      <form action="{{ url_for('projetos.upload_documento', projeto_id=projeto.id) }}" method="post"
+            enctype="multipart/form-data" class="form-gestor" style="margin-top:14px;" data-ajax="true">
+        <div>
+          <label for="documentos">Enviar documento (.pdf, .docx, .xlsx, .txt)</label>
+          <input type="file" id="documentos" name="documentos" multiple required>
+        </div>
+        <div><button type="submit" class="btn-secundario" data-loading-text="Enviando…">Enviar documento</button></div>
+      </form>
+
+      <div class="divisor-acao">Avaliação por IA</div>
+
+      <form action="{{ url_for('projetos.rodar_auditoria', projeto_id=projeto.id) }}" method="post" data-ajax="true">
+        <button type="submit" class="btn" data-loading-text="Analisando documentos…">{{ 'Rodar auditoria por IA' if not auditorias else 'Rodar reavaliação por IA' }}</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="nc-card-topo">
+        <h2>Não Conformidades{{ ' (' ~ ('auditoria inicial' if auditorias|length <= 1 else 'reavaliação #' ~ (auditorias|length - 1)) ~ ')' if auditoria_atual else '' }}</h2>
+        {% if auditoria_atual and auditoria_atual.aderencia is not none %}
+          {% set aderencia = auditoria_atual.aderencia %}
+          {% set classe_aderencia = 'badge-aderencia-ok' if aderencia >= 80 else ('badge-aderencia-alerta' if aderencia >= 50 else 'badge-aderencia-ruim') %}
+          <span class="status-badge {{ classe_aderencia }}">{{ aderencia }}% de aderência</span>
+        {% endif %}
+      </div>
+
+      {% if not auditoria_atual %}
+        <p class="vazio">Nenhuma auditoria rodada ainda. Envie os documentos iniciais e rode a auditoria por IA acima.</p>
+      {% else %}
+        {% for nc in nao_conformidades %}
+          <div class="nc-card {{ 'resolvida' if nc.status == 'resolvida' else '' }}" id="nc-{{ nc.id }}"
+               data-nc-titulo="{{ nc.titulo }}"
+               data-nc-descricao="{{ nc.descricao_erro }}"
+               data-nc-evidencia="{{ nc.evidencia or '' }}"
+               data-nc-impacto="{{ nc.impacto or '' }}"
+               data-nc-acao="{{ nc.acao_corretiva or '' }}"
+               data-nc-prazo-limite="{{ nc.prazo_limite or '' }}"
+               data-nc-notificado-em="{{ nc.notificado_em or '' }}"
+               data-projeto-nome="{{ projeto.nome }}"
+               data-responsavel-email="{{ projeto.responsavel_superior_email }}"
+               data-participantes="{{ participantes|map(attribute='email')|join(',') }}">
+            <div class="nc-card-topo">
+              <h3>{{ nc.titulo }}</h3>
+              <div class="acoes-linha">
+                <span class="badge-origem">{{ 'IA' if nc.origem == 'ia' else 'Manual' }}</span>
+                <span class="badge-origem {{ 'badge-resolvida' if nc.status == 'resolvida' else 'badge-aberta' }}">
+                  {{ 'Resolvida' if nc.status == 'resolvida' else 'Aberta' }}
+                </span>
+              </div>
+            </div>
+            <p class="nc-campo"><strong>Descrição:</strong> {{ nc.descricao_erro }}</p>
+            {% if nc.evidencia %}<p class="nc-campo"><strong>Evidência:</strong> {{ nc.evidencia }}</p>{% endif %}
+            {% if nc.impacto %}<p class="nc-campo"><strong>Impacto:</strong> {{ nc.impacto }}</p>{% endif %}
+            {% if nc.acao_corretiva %}<p class="nc-campo"><strong>Ação corretiva esperada:</strong> {{ nc.acao_corretiva }}</p>{% endif %}
+
+            {% if nc.status == 'aberta' and auditoria_atual.status != 'encerrada' %}
+              {% set links = nc_links.get(nc.id, {}) %}
+              <div class="nc-prazo">
+                {% if nc.escalonado %}
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <span class="status-badge status-escalonado">🚨 Escalonada</span>
+                    {% if participantes %}
+                      <span class="dica">Uma nova correção pode ser solicitada à equipe.</span>
+                    {% endif %}
+                  </div>
+                {% elif nc.prazo_limite %}
+                  <span class="countdown countdown-neutro" data-prazo="{{ nc.prazo_limite|iso_datetime }}" data-escalonar-alvo="nc-escalonar-{{ nc.id }}">calculando…</span>
+                  <form id="nc-escalonar-{{ nc.id }}" action="{{ url_for('nc.escalonar', nc_id=nc.id) }}" method="post"
+                        class="form-inline form-escalonar-nc {{ '' if links.vencida else 'oculto' }}" data-ajax="true"
+                        data-confirmar="Prazo desta NC vencido. Confirma o escalonamento imediato ao responsável ({{ projeto.responsavel_superior_email }})?">
+                    <button type="submit" class="btn-secundario btn-perigo">Prazo vencido — escalonar</button>
+                  </form>
+                {% else %}
+                  <span class="dica">Defina o prazo ao clicar em enviar e-mail.</span>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            {% set links = nc_links.get(nc.id, {}) %}
+            <div class="acoes-linha nc-acoes" style="margin-top:10px;">
+              <form action="{{ url_for('nc.alternar_status', nc_id=nc.id) }}" method="post" data-ajax="true">
+                <button type="submit" class="btn-secundario">
+                  {{ 'Marcar como pendente' if nc.status == 'resolvida' else 'Marcar como resolvida' }}
+                </button>
+              </form>
+              {% if links.notificar or (nc.escalonado and participantes) or (not nc.prazo_limite and participantes) %}
+                <button type="button" class="btn-secundario btn-email btn-abrir-email"
+                        data-notificar-url="{{ url_for('nc.notificar', nc_id=nc.id) }}"
+                        data-email-modo="{{ 'reabertura' if nc.escalonado else 'correcao' }}">
+                  ✉ Enviar e-mail
+                </button>
+              {% endif %}
+              <details class="nc-editar">
+                <summary class="btn-secundario btn-editar">✏ Editar</summary>
+                <form action="{{ url_for('nc.editar', nc_id=nc.id) }}" method="post" class="form-gestor" style="margin-top:10px;" data-ajax="true">
+                  <input type="text" name="titulo" value="{{ nc.titulo }}" placeholder="Título">
+                  <textarea name="descricao_erro" placeholder="Descrição">{{ nc.descricao_erro }}</textarea>
+                  <textarea name="evidencia" placeholder="Evidência">{{ nc.evidencia or '' }}</textarea>
+                  <textarea name="impacto" placeholder="Impacto">{{ nc.impacto or '' }}</textarea>
+                  <textarea name="acao_corretiva" placeholder="Ação corretiva">{{ nc.acao_corretiva or '' }}</textarea>
+                  <button type="submit" class="btn-secundario">Salvar alterações</button>
+                </form>
+              </details>
+              <form action="{{ url_for('nc.excluir', nc_id=nc.id) }}" method="post" data-ajax="true"
+                    data-confirmar="Remover a não conformidade &quot;{{ nc.titulo }}&quot;? Essa ação não pode ser desfeita.">
+                <button type="submit" class="btn-secundario btn-perigo">Excluir</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <p class="vazio">Nenhuma não conformidade registrada nesta auditoria. 🎉</p>
+        {% endfor %}
+
+        <details class="nc-editar">
+          <summary>+ Adicionar não conformidade manualmente</summary>
+          <form action="{{ url_for('nc.adicionar', auditoria_id=auditoria_atual.id) }}" method="post" class="form-gestor" style="margin-top:10px;" data-ajax="true">
+            <input type="text" name="titulo" placeholder="Título" required>
+            <textarea name="descricao_erro" placeholder="Descrição" required></textarea>
+            <textarea name="evidencia" placeholder="Evidência"></textarea>
+            <textarea name="impacto" placeholder="Impacto"></textarea>
+            <textarea name="acao_corretiva" placeholder="Ação corretiva"></textarea>
+            <button type="submit" class="btn-secundario">Adicionar NC</button>
+          </form>
+        </details>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    {% if auditoria_atual and auditoria_atual.status != 'encerrada' %}
+      <div class="card card-final">
+        <div class="nc-card-topo">
+          <h2>Fechar auditoria</h2>
+          <span class="badge-origem">Ação final</span>
+        </div>
+        {% set nc_abertas_count = resumo_nc.abertas + resumo_nc.aguardando + resumo_nc.vencidas + resumo_nc.escalonadas %}
+        {% if nc_abertas_count > 0 %}
+          <p class="dica" style="color:#8a6100; background:#fdf1d6; border-radius:8px; padding:8px 12px; margin-bottom:10px;">
+            ⚠️ <strong>{{ nc_abertas_count }} NC(s) ainda em aberto.</strong>
+            Para encerrar como "Aprovado" ou "Aprovado com Ressalvas", resolva todas as pendências primeiro.
+            "Reprovado" pode ser emitido mesmo com NCs abertas.
+          </p>
+        {% endif %}
+        <p class="dica">Encerra a auditoria com um parecer final. Depois de encerrada, não dá mais para notificar ou escalonar as NCs dela.</p>
+        <form action="{{ url_for('auditorias.encerrar', auditoria_id=auditoria_atual.id) }}" method="post" class="form-gestor" data-ajax="true"
+              data-confirmar="Encerrar esta auditoria? Depois de encerrada, não será possível notificar o grupo ou escalonar as NCs dela.">
+          <div>
+            <label for="parecer_final">Parecer final</label>
+            <select id="parecer_final" name="parecer_final">
+              <option value="Aprovado">Aprovado</option>
+              <option value="Aprovado com Ressalvas">Aprovado com Ressalvas</option>
+              <option value="Reprovado">Reprovado</option>
+            </select>
+          </div>
+          <div><button type="submit" class="btn btn-final" data-loading-text="Encerrando…">Emitir veredito e encerrar</button></div>
+        </form>
+      </div>
+    {% endif %}
+
+    <details class="card">
+      <summary><strong>Histórico de auditorias</strong> · {{ auditorias|length }}</summary>
+      {% if auditorias %}
+        <ul class="lista-simples" style="margin-top:10px;">
+          {% for auditoria in auditorias %}
+            {% set numero_reavaliacao = auditorias|length - loop.index %}
+            <li class="linha-lista-acao">
+              <span>
+                <strong>{{ 'Auditoria inicial' if numero_reavaliacao == 0 else 'Reavaliação #' ~ numero_reavaliacao }}</strong>
+                — {{ auditoria.data_auditoria|formatar_data }} — {{ auditoria.aderencia }}% aderência
+                {% if auditoria.parecer_final %} — parecer: {{ auditoria.parecer_final }}{% endif %}
+              </span>
+              <span class="status-badge {{ auditoria.status|auditoria_status_css }}">{{ auditoria.status|auditoria_status_label }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="vazio">Nenhuma auditoria rodada ainda.</p>
+      {% endif %}
+    </details>
+
+    <details class="card">
+      <summary><strong>Rascunhos de e-mail</strong> · {{ logs_emails|length }}</summary>
+      <p class="dica"><span class="badge-origem badge-info">não enviado automaticamente</span> o sistema só monta o e-mail e abre no Gmail — quem envia, de fato, é você.</p>
+      {% if logs_emails %}
+        <ul class="lista-simples">
+          {% for log in logs_emails %}
+            <li class="linha-lista-acao">
+              <span><span class="badge-origem">{{ log.tipo|log_tipo_label }}</span> {{ log.data_envio|formatar_data }} — para: {{ log.destinatarios }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="vazio">Nenhum rascunho gerado ainda.</p>
+      {% endif %}
+    </details>
+  </div>
+</div>
+{% endblock %}

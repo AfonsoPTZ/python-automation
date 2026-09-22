@@ -1,0 +1,97 @@
+{% extends "base_gestor.html" %}
+{% block titulo %}Projetos{% endblock %}
+
+{% block conteudo %}
+{% set titulo = "Projetos em auditoria" %}
+{% set subtitulo = total_projetos ~ " projeto" ~ ("s" if total_projetos != 1 else "") ~ " em acompanhamento." %}
+{% set acao_url = url_for('projetos.novo') %}
+{% set acao_texto = "+ Novo projeto" %}
+{% include "_page_header.html" %}
+
+<div class="card">
+  <form action="{{ url_for('projetos.listar') }}" method="get" class="form-busca">
+    {% if status_filtro %}<input type="hidden" name="status" value="{{ status_filtro }}">{% endif %}
+    {% if alerta_filtro %}<input type="hidden" name="alerta" value="{{ alerta_filtro }}">{% endif %}
+    <input type="search" name="q" value="{{ busca }}" placeholder="Buscar projeto pelo nome…" aria-label="Buscar projeto pelo nome">
+    <button type="submit" class="btn-secundario">Buscar</button>
+    {% if busca or status_filtro or alerta_filtro %}
+      <a href="{{ url_for('projetos.listar') }}" class="btn-texto">Limpar filtros</a>
+    {% endif %}
+  </form>
+
+  <div class="filtros-status">
+    <a href="{{ url_for('projetos.listar', q=busca) }}" class="filtro-chip {{ 'ativo' if not status_filtro and not alerta_filtro else '' }}">Todos{% if total_projetos %} ({{ total_projetos }}){% endif %}</a>
+    {% for status in status_opcoes %}
+      {% set contagem = contagem_status.get(status, 0) %}
+      <a href="{{ url_for('projetos.listar', status=status, q=busca) }}"
+         class="filtro-chip {{ 'ativo' if status_filtro == status and not alerta_filtro else '' }}">{{ status|status_com_icone }}{% if contagem %} ({{ contagem }}){% endif %}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="lista-projetos">
+  {% for entrada in projetos %}
+    {% set projeto = entrada.projeto %}
+    {% set auditoria = entrada.auditoria %}
+    {% set alertas = entrada.alertas %}
+    {% set proximo_prazo = entrada.proximo_prazo %}
+    <a class="card projeto-card" href="{{ url_for('projetos.detalhe', projeto_id=projeto.id) }}">
+      <div class="info">
+        <h2>{{ projeto.nome }}</h2>
+        <p class="meta">Criado em {{ projeto.created_at|formatar_data }} · Responsável: {{ projeto.responsavel_superior_email }}</p>
+        {% if proximo_prazo %}
+          {# Exibe prazo apenas quando urgente (elemento de atenção, não ruído) #}
+          <span class="countdown countdown-neutro" data-prazo="{{ proximo_prazo|iso_datetime }}" style="margin-top:6px; display:inline-flex; font-size:.78rem;"></span>
+        {% endif %}
+      </div>
+      <div class="projeto-status-area">
+        <span class="status-badge {{ projeto.status|status_css }}">{{ projeto.status|status_com_icone }}</span>
+        <div class="projeto-alertas" aria-label="Alertas do projeto">
+          {% if alertas.abertas %}
+            <span class="mini-alerta mini-alerta-info" title="Não conformidades abertas, ainda sem notificação">
+              📋 {{ alertas.abertas }} aberta{{ 's' if alertas.abertas != 1 else '' }}
+            </span>
+          {% endif %}
+          {% if alertas.aguardando %}
+            <span class="mini-alerta mini-alerta-espera" title="Não conformidades aguardando resolução">
+              🕒 {{ alertas.aguardando }} aguardando
+            </span>
+          {% endif %}
+          {% if alertas.escalonadas %}
+            <span class="mini-alerta mini-alerta-perigo" title="Não conformidades escalonadas">
+              🚨 {{ alertas.escalonadas }} escalonada{{ 's' if alertas.escalonadas != 1 else '' }}
+            </span>
+          {% endif %}
+          {% if alertas.vencidos %}
+            <span class="mini-alerta mini-alerta-vencido" title="Não conformidades com prazo expirado">
+              ⚠️ {{ alertas.vencidos }} prazo{{ 's' if alertas.vencidos != 1 else '' }} estourado{{ 's' if alertas.vencidos != 1 else '' }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+  {% else %}
+    <div class="estado-vazio">
+      <p class="estado-vazio-titulo">
+        {% if busca or status_filtro or alerta_filtro %}
+          Nenhum projeto encontrado{{ ' para "%s"'|format(busca) if busca else '' }}{{ ' com este status' if status_filtro else '' }}.
+        {% else %}
+          Nenhum projeto em auditoria ainda.
+        {% endif %}
+      </p>
+      <p class="dica">
+        {% if busca or status_filtro or alerta_filtro %}
+          Tente ajustar a busca ou limpar os filtros.
+        {% else %}
+          Quando você criar um projeto, ele aparecerá aqui para acompanhamento.
+        {% endif %}
+      </p>
+      {% if busca or status_filtro %}
+        <a href="{{ url_for('projetos.listar') }}" class="btn-secundario">Limpar filtros</a>
+      {% else %}
+        <a href="{{ url_for('projetos.novo') }}" class="btn">+ Novo projeto</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

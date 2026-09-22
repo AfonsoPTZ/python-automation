@@ -1,0 +1,14 @@
+{# Cabeçalho padrão de página: título + subtítulo opcional + voltar + ação principal.
+   Uso: {% include "_page_header.html" %} com as variáveis abaixo definidas no template. #}
+<div class="page-header">
+  <div class="page-header-texto">
+    {% if voltar_url %}
+      <a href="{{ voltar_url }}" class="link-voltar-topo">← {{ voltar_texto or "Voltar" }}</a>
+    {% endif %}
+    <h1>{{ titulo }}</h1>
+    {% if subtitulo %}<p class="dica">{{ subtitulo }}</p>{% endif %}
+  </div>
+  {% if acao_url %}
+    <a href="{{ acao_url }}" class="btn">{{ acao_texto }}</a>
+  {% endif %}
+</div>

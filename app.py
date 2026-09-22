@@ -144,4 +144,14 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Em produção o ideal é gunicorn (ver Procfile/railway.json), mas se
+    # algum builder rodar "python app.py" direto mesmo assim (foi o caso na
+    # Railway com o Railpack ignorando o Procfile), isto ainda funciona:
+    # escuta em todas as interfaces (0.0.0.0, não só localhost — senão o
+    # proxy da hospedagem não alcança o processo) na porta que a plataforma
+    # definir via $PORT. Debug fica ligado só localmente (sem $PORT definido);
+    # hospedagens como a Railway sempre definem $PORT, então lá já desliga
+    # sozinho — sem precisar configurar nada a mais.
+    modo_debug = os.environ.get("FLASK_DEBUG") == "1" or "PORT" not in os.environ
+    porta = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=porta, debug=modo_debug)

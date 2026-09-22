@@ -101,6 +101,36 @@ O banco SQLite (`data/qa_audit.db`) é criado automaticamente na primeira
 execução. Acesse <http://localhost:5000> para a ferramenta rápida (1 PDF por
 vez) ou <http://localhost:5000/projetos> para o Painel do Auditor.
 
+## Deploy (Railway)
+
+A aplicação usa SQLite em arquivo, salva os documentos enviados em disco e
+roda uma rotina agendada em processo (`APScheduler`) para escalonamento
+automático de prazo vencido — por isso precisa de um host com **processo
+contínuo e disco persistente** (não serverless). Railway atende isso direto,
+sem mudar nada no código.
+
+1. Suba o repositório no GitHub (se ainda não estiver).
+2. No Railway: **New Project → Deploy from GitHub repo**, selecione este
+   repositório. O `Procfile` já diz como rodar (`gunicorn`, 1 worker — ver
+   nota abaixo); a versão do Python vem do `.python-version`.
+3. Adicione um **Volume** ao serviço (aba *Settings → Volumes*) e monte em
+   `/data`. Sem isso, o banco e os documentos são apagados a cada novo deploy.
+4. Em *Variables*, defina:
+   - `GEMINI_API_KEY` — obrigatória.
+   - `SECRET_KEY` — recomendada (qualquer string aleatória; sem ela, usa um
+     valor padrão fixo do código, inadequado pra produção).
+   - `DATABASE_PATH=/data/qa_audit.db`
+   - `UPLOAD_FOLDER=/data/uploads`
+5. Deploy. O Railway expõe a porta via a variável `$PORT`, que o `Procfile`
+   já usa.
+
+**Por que `--workers 1` no Procfile:** o scheduler de escalonamento
+automático roda dentro do próprio processo Flask, iniciado uma vez quando o
+app sobe (`app.py`). Com mais de 1 worker do gunicorn, cada um subiria seu
+próprio scheduler, verificando e escalonando os mesmos prazos vencidos em
+paralelo — daí o `--threads 4` no lugar de múltiplos workers, pra manter
+alguma concorrência sem duplicar o agendador.
+
 ## Como a análise é feita (e suas limitações)
 
 O texto extraído do PDF é enviado, junto com a descrição dos 30 critérios,

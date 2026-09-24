@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, abort, flash, redirect, request, url_for
 
+from auditoria.criterios import CRITERIOS
 from database import get_db
 
 bp = Blueprint("nc", __name__)
@@ -54,6 +55,7 @@ def adicionar(auditoria_id):
     evidencia = (request.form.get("evidencia") or "").strip()
     impacto = (request.form.get("impacto") or "").strip()
     acao_corretiva = (request.form.get("acao_corretiva") or "").strip()
+    item_checklist = _item_checklist_do_form()
 
     if not titulo or not descricao_erro:
         flash("Informe ao menos o título e a descrição da não conformidade.", "erro")
@@ -61,13 +63,19 @@ def adicionar(auditoria_id):
 
     db.execute(
         "INSERT INTO nao_conformidades "
-        "(auditoria_id, titulo, descricao_erro, evidencia, impacto, acao_corretiva, "
-        "origem, status) VALUES (?, ?, ?, ?, ?, ?, 'manual', 'aberta')",
-        (auditoria_id, titulo, descricao_erro, evidencia, impacto, acao_corretiva),
+        "(auditoria_id, item_checklist, titulo, descricao_erro, evidencia, impacto, "
+        "acao_corretiva, origem, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', 'aberta')",
+        (auditoria_id, item_checklist, titulo, descricao_erro, evidencia, impacto, acao_corretiva),
     )
     db.commit()
     flash("Não conformidade adicionada.", "ok")
     return redirect(url_for("projetos.detalhe", projeto_id=auditoria["projeto_id"]))
+
+
+# Código do checklist escolhido no <select> ("U11"), ou None se vazio/inválido.
+def _item_checklist_do_form():
+    codigo = (request.form.get("item_checklist") or "").strip()
+    return codigo if any(c["codigo"] == codigo for c in CRITERIOS) else None
 
 
 @bp.post("/nc/<int:nc_id>/editar")
@@ -85,11 +93,13 @@ def editar(nc_id):
     evidencia = (request.form.get("evidencia") or nc["evidencia"] or "").strip()
     impacto = (request.form.get("impacto") or nc["impacto"] or "").strip()
     acao_corretiva = (request.form.get("acao_corretiva") or nc["acao_corretiva"] or "").strip()
+    # Aqui vazio é escolha explícita ("sem item"), o <select> sempre envia valor.
+    item_checklist = _item_checklist_do_form()
 
     db.execute(
-        "UPDATE nao_conformidades SET titulo = ?, descricao_erro = ?, evidencia = ?, "
-        "impacto = ?, acao_corretiva = ? WHERE id = ?",
-        (titulo, descricao_erro, evidencia, impacto, acao_corretiva, nc_id),
+        "UPDATE nao_conformidades SET item_checklist = ?, titulo = ?, descricao_erro = ?, "
+        "evidencia = ?, impacto = ?, acao_corretiva = ? WHERE id = ?",
+        (item_checklist, titulo, descricao_erro, evidencia, impacto, acao_corretiva, nc_id),
     )
     db.commit()
     flash("Não conformidade atualizada.", "ok")

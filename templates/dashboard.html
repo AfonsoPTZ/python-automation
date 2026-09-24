@@ -46,7 +46,6 @@
           {% endif %}
         </div>
         <div class="projeto-status-area">
-          <span class="status-badge {{ projeto.status|status_css }}">{{ projeto.status|status_com_icone }}</span>
           <div class="projeto-alertas" aria-label="Alertas do projeto">
             {% if alertas.abertas %}
               <span class="mini-alerta mini-alerta-info" title="Não conformidades abertas, ainda sem notificação">

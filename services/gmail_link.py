@@ -30,6 +30,7 @@ def texto_notificacao_nc(projeto, nc, prazo_limite):
         "seguinte não conformidade que precisa ser corrigida:",
         "",
         "Não conformidade:",
+        *([f"Item do checklist: {nc['item_checklist']}"] if nc["item_checklist"] else []),
         f"Título: {nc['titulo']}",
         f"Descrição: {nc['descricao_erro']}",
     ]
@@ -66,6 +67,7 @@ def texto_escalonamento_nc(projeto, nc):
         "isso estou escalonando esta pendência para o seu acompanhamento.",
         "",
         "Correção solicitada:",
+        *([f"Item do checklist: {nc['item_checklist']}"] if nc["item_checklist"] else []),
         f"Título: {nc['titulo']}",
         f"Descrição: {nc['descricao_erro']}",
     ]

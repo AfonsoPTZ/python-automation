@@ -253,8 +253,31 @@
               <option value="Reprovado">Reprovado</option>
             </select>
           </div>
-          <div><button type="submit" class="btn btn-final" data-loading-text="Encerrando…">Emitir veredito e encerrar</button></div>
+          <div><button type="submit" class="btn btn-final" data-loading-text="Encerrando e gerando relatório…">Emitir veredito e encerrar</button></div>
         </form>
+        <p class="dica" style="margin-top:8px;">Ao encerrar, a IA escreve um relatório final em PDF com tudo o que aconteceu no projeto (pode levar alguns segundos).</p>
+      </div>
+    {% elif auditoria_atual and auditoria_atual.status == 'encerrada' %}
+      <div class="card card-final">
+        <div class="nc-card-topo">
+          <h2>Relatório final</h2>
+          <span class="status-badge status-encerrado">{{ auditoria_atual.parecer_final }}</span>
+        </div>
+        {% if auditoria_atual.relatorio_ia %}
+          <p class="dica">Gerado pela IA em {{ auditoria_atual.relatorio_gerado_em|formatar_data }}: resumo, histórico das auditorias, NCs, e-mails, escalonamentos e recomendações.</p>
+        {% else %}
+          <p class="dica" style="color:#8a6100; background:#fdf1d6; border-radius:8px; padding:8px 12px;">
+            A análise da IA ainda não foi gerada. O PDF sai só com os números do sistema até você gerar com a IA.
+          </p>
+        {% endif %}
+        <div class="acoes-linha" style="margin-top:10px;">
+          <a class="btn" href="{{ url_for('auditorias.baixar_relatorio', auditoria_id=auditoria_atual.id) }}">⬇ Baixar relatório (PDF)</a>
+          <form action="{{ url_for('auditorias.gerar_relatorio', auditoria_id=auditoria_atual.id) }}" method="post" data-ajax="true">
+            <button type="submit" class="btn-secundario" data-loading-text="Gerando com IA…">
+              {{ '↻ Gerar novamente com IA' if auditoria_atual.relatorio_ia else '✨ Gerar com IA' }}
+            </button>
+          </form>
+        </div>
       </div>
     {% endif %}
 

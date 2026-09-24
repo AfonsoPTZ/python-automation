@@ -30,6 +30,9 @@ _MIGRACOES = [
     ("nao_conformidades", "escalonado", "INTEGER NOT NULL DEFAULT 0"),
     ("documentos", "versao", "INTEGER NOT NULL DEFAULT 1"),
     ("nao_conformidades", "notificado_em", "TEXT"),
+    ("auditorias", "encerrada_em", "TEXT"),
+    ("auditorias", "relatorio_ia", "TEXT"),
+    ("auditorias", "relatorio_gerado_em", "TEXT"),
 ]
 
 

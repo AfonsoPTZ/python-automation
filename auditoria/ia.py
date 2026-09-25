@@ -111,14 +111,14 @@ def _cliente():
 
 # Chama a IA, repetindo com espera crescente se o modelo estiver sobrecarregado (503).
 # Cota esgotada (429) não é repetida: tentar de novo não resolve e só consome mais cota.
-def _gerar_com_retentativas(cliente, prompt, esquema=_ESQUEMA_RESPOSTA):
+def _gerar_com_retentativas(cliente, prompt, esquema=_ESQUEMA_RESPOSTA, instrucao_sistema=_INSTRUCAO_SISTEMA):
     for tentativa in range(1, _TENTATIVAS + 1):
         try:
             return cliente.models.generate_content(
                 model=_MODELO,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=_INSTRUCAO_SISTEMA,
+                    system_instruction=instrucao_sistema,
                     response_mime_type="application/json",
                     response_schema=esquema,
                 ),
@@ -206,3 +206,70 @@ def avaliar_projeto_com_ia(texto_documento, criterios=None):
             "acao_corretiva": resultado.get("acao_corretiva") if resultado else None,
         })
     return itens
+
+
+# ===================== Relatório final do projeto =====================
+# Ao encerrar a auditoria, a IA escreve a parte narrativa do relatório a
+# partir de um resumo (em JSON) de tudo o que aconteceu no projeto. Os
+# números e tabelas do PDF saem direto do banco (services/relatorio_final.py);
+# a IA só interpreta e escreve, não é a fonte dos dados.
+_INSTRUCAO_SISTEMA_RELATORIO = (
+    "Voce e um auditor de qualidade escrevendo o relatorio final de um processo "
+    "de auditoria academica. Use somente os dados fornecidos em JSON: nao "
+    "invente numeros, datas, nomes ou fatos que nao estejam neles. Quando um "
+    "dado nao existir, simplesmente nao fale dele. Escreva em portugues do "
+    "Brasil, em tom profissional e objetivo, com frases claras. Nao use "
+    "markdown, emojis nem marcadores dentro dos textos."
+)
+
+_ESQUEMA_RELATORIO = {
+    "type": "object",
+    "properties": {
+        "resumo_executivo": {"type": "string"},
+        "historico_do_processo": {"type": "string"},
+        "analise_das_nao_conformidades": {"type": "string"},
+        "comunicacao_e_prazos": {"type": "string"},
+        "conclusao": {"type": "string"},
+        "recomendacoes": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "resumo_executivo", "historico_do_processo", "analise_das_nao_conformidades",
+        "comunicacao_e_prazos", "conclusao", "recomendacoes",
+    ],
+}
+
+
+def gerar_relatorio_final_com_ia(dados_projeto):
+    prompt = (
+        "Escreva o relatorio final do processo de auditoria descrito nos dados abaixo.\n"
+        "- resumo_executivo: 1 paragrafo com o essencial (projeto, parecer final, "
+        "aderencia, quantas NCs, como terminou).\n"
+        "- historico_do_processo: a linha do tempo, auditoria por auditoria "
+        "(ex.: 'na primeira auditoria foram encontradas X NCs...'), versoes de "
+        "documento enviadas e a evolucao da aderencia.\n"
+        "- analise_das_nao_conformidades: quais categorias do checklist "
+        "concentraram mais problemas, quantas foram resolvidas, quais ficaram "
+        "em aberto e o que isso indica sobre o trabalho.\n"
+        "- comunicacao_e_prazos: e-mails de correcao preparados, prazos "
+        "definidos, escalonamentos ao responsavel e o que isso mostra sobre o "
+        "cumprimento de prazos pela equipe.\n"
+        "- conclusao: 1 paragrafo justificando o parecer final com base nos dados.\n"
+        "- recomendacoes: de 3 a 5 recomendacoes curtas para a equipe ou para "
+        "proximas auditorias.\n"
+        "Separe paragrafos com uma linha em branco.\n\n"
+        f"Dados do processo (JSON):\n{json.dumps(dados_projeto, ensure_ascii=False, indent=1)}"
+    )
+    resposta = _gerar_com_retentativas(
+        _cliente(), prompt, esquema=_ESQUEMA_RELATORIO,
+        instrucao_sistema=_INSTRUCAO_SISTEMA_RELATORIO,
+    )
+    texto = getattr(resposta, "text", None)
+    if not texto:
+        raise RuntimeError("A IA não retornou o texto do relatório. Tente gerar novamente.")
+    try:
+        secoes = json.loads(texto)
+    except json.JSONDecodeError as erro:
+        raise RuntimeError("A IA retornou o relatório em formato inesperado. Tente novamente.") from erro
+    if not isinstance(secoes, dict):
+        raise RuntimeError("A IA retornou o relatório em formato inesperado. Tente novamente.")
+    return secoes

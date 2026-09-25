@@ -101,6 +101,11 @@ def create_app():
     def auditoria_status_css(status):
         return _AUDITORIA_STATUS_CSS.get(status, "status-em-auditoria")
 
+    # Checklist da disciplina nos templates: badge "U11" em cada NC (com a
+    # pergunta no tooltip) e <select> de item nos formulários de NC.
+    app.jinja_env.globals["criterios"] = CRITERIOS
+    app.jinja_env.globals["criterios_por_codigo"] = {c["codigo"]: c for c in CRITERIOS}
+
     @app.template_filter("log_tipo_label")
     def log_tipo_label(tipo):
         return _LOG_TIPO_LABEL.get(tipo, tipo)

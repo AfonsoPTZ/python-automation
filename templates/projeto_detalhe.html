@@ -139,6 +139,7 @@
         {% for nc in nao_conformidades %}
           <div class="nc-card {{ 'resolvida' if nc.status == 'resolvida' else '' }}" id="nc-{{ nc.id }}"
                data-nc-titulo="{{ nc.titulo }}"
+               data-nc-item="{{ nc.item_checklist or '' }}"
                data-nc-descricao="{{ nc.descricao_erro }}"
                data-nc-evidencia="{{ nc.evidencia or '' }}"
                data-nc-impacto="{{ nc.impacto or '' }}"
@@ -149,7 +150,13 @@
                data-responsavel-email="{{ projeto.responsavel_superior_email }}"
                data-participantes='{{ participantes_json|tojson }}'>
             <div class="nc-card-topo">
-              <h3>{{ nc.titulo }}</h3>
+              <h3>
+                {% set criterio = criterios_por_codigo.get(nc.item_checklist) %}
+                {% if nc.item_checklist %}
+                  <span class="badge-item-checklist" title="{{ nc.item_checklist }}{{ ' — ' ~ criterio.descricao if criterio else '' }}">{{ nc.item_checklist }}</span>
+                {% endif %}
+                {{ nc.titulo }}
+              </h3>
               <div class="acoes-linha">
                 <span class="badge-origem">{{ 'IA' if nc.origem == 'ia' else 'Manual' }}</span>
                 <span class="badge-origem {{ 'badge-resolvida' if nc.status == 'resolvida' else 'badge-aberta' }}">
@@ -162,7 +169,7 @@
             {% if nc.impacto %}<p class="nc-campo"><strong>Impacto:</strong> {{ nc.impacto }}</p>{% endif %}
             {% if nc.acao_corretiva %}<p class="nc-campo"><strong>Ação corretiva esperada:</strong> {{ nc.acao_corretiva }}</p>{% endif %}
 
-            {% if nc.status == 'aberta' and auditoria_atual.status != 'encerrada' %}
+            {% if nc.status == 'aberta' and auditoria_atual.status != 'encerrada' and (nc.escalonado or nc.prazo_limite) %}
               {% set links = nc_links.get(nc.id, {}) %}
               <div class="nc-prazo">
                 {% if nc.escalonado %}
@@ -179,8 +186,6 @@
                         data-confirmar="Prazo desta NC vencido. Confirma o escalonamento imediato ao responsável ({{ projeto.responsavel_superior_email }})?">
                     <button type="submit" class="btn-secundario btn-perigo">Prazo vencido — escalonar</button>
                   </form>
-                {% else %}
-                  <span class="dica">Defina o prazo ao clicar em enviar e-mail.</span>
                 {% endif %}
               </div>
             {% endif %}
@@ -199,17 +204,33 @@
                   ✉ Enviar e-mail
                 </button>
               {% endif %}
-              <details class="nc-editar">
-                <summary class="btn-secundario btn-editar">✏ Editar</summary>
-                <form action="{{ url_for('nc.editar', nc_id=nc.id) }}" method="post" class="form-gestor" style="margin-top:10px;" data-ajax="true">
-                  <input type="text" name="titulo" value="{{ nc.titulo }}" placeholder="Título">
-                  <textarea name="descricao_erro" placeholder="Descrição">{{ nc.descricao_erro }}</textarea>
-                  <textarea name="evidencia" placeholder="Evidência">{{ nc.evidencia or '' }}</textarea>
-                  <textarea name="impacto" placeholder="Impacto">{{ nc.impacto or '' }}</textarea>
-                  <textarea name="acao_corretiva" placeholder="Ação corretiva">{{ nc.acao_corretiva or '' }}</textarea>
-                  <button type="submit" class="btn-secundario">Salvar alterações</button>
+              <button type="button" class="btn-secundario btn-editar btn-abrir-editar-nc">✏ Editar</button>
+              <template class="tpl-editar-nc">
+                <form action="{{ url_for('nc.editar', nc_id=nc.id) }}" method="post" data-ajax="true">
+                  <p class="modal-titulo">Editar não conformidade</p>
+                  <label class="modal-label" for="editar-nc-item">Item do checklist</label>
+                  <select id="editar-nc-item" class="modal-campo" name="item_checklist">
+                    <option value="">— Sem item do checklist —</option>
+                    {% for c in criterios %}
+                      <option value="{{ c.codigo }}" {{ 'selected' if c.codigo == nc.item_checklist else '' }}>{{ c.codigo }} — {{ c.descricao }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="modal-label" for="editar-nc-titulo">Título</label>
+                  <input id="editar-nc-titulo" class="modal-campo" type="text" name="titulo" value="{{ nc.titulo }}">
+                  <label class="modal-label" for="editar-nc-descricao">Descrição</label>
+                  <textarea id="editar-nc-descricao" class="modal-campo" name="descricao_erro" rows="3">{{ nc.descricao_erro }}</textarea>
+                  <label class="modal-label" for="editar-nc-evidencia">Evidência</label>
+                  <textarea id="editar-nc-evidencia" class="modal-campo" name="evidencia" rows="3">{{ nc.evidencia or '' }}</textarea>
+                  <label class="modal-label" for="editar-nc-impacto">Impacto</label>
+                  <textarea id="editar-nc-impacto" class="modal-campo" name="impacto" rows="3">{{ nc.impacto or '' }}</textarea>
+                  <label class="modal-label" for="editar-nc-acao">Ação corretiva</label>
+                  <textarea id="editar-nc-acao" class="modal-campo" name="acao_corretiva" rows="3">{{ nc.acao_corretiva or '' }}</textarea>
+                  <div class="modal-acoes">
+                    <button type="button" class="btn-secundario" data-modal-cancelar>Cancelar</button>
+                    <button type="submit" class="btn">Salvar alterações</button>
+                  </div>
                 </form>
-              </details>
+              </template>
               <form action="{{ url_for('nc.excluir', nc_id=nc.id) }}" method="post" data-ajax="true"
                     data-confirmar="Remover a não conformidade &quot;{{ nc.titulo }}&quot;? Essa ação não pode ser desfeita.">
                 <button type="submit" class="btn-secundario btn-perigo">Excluir</button>
@@ -223,6 +244,12 @@
         <details class="nc-editar">
           <summary>+ Adicionar não conformidade manualmente</summary>
           <form action="{{ url_for('nc.adicionar', auditoria_id=auditoria_atual.id) }}" method="post" class="form-gestor" style="margin-top:10px;" data-ajax="true">
+            <select name="item_checklist">
+              <option value="">— Item do checklist (opcional) —</option>
+              {% for c in criterios %}
+                <option value="{{ c.codigo }}">{{ c.codigo }} — {{ c.descricao }}</option>
+              {% endfor %}
+            </select>
             <input type="text" name="titulo" placeholder="Título" required>
             <textarea name="descricao_erro" placeholder="Descrição" required></textarea>
             <textarea name="evidencia" placeholder="Evidência"></textarea>
@@ -261,8 +288,31 @@
               <option value="Reprovado">Reprovado</option>
             </select>
           </div>
-          <div><button type="submit" class="btn btn-final" data-loading-text="Encerrando…">Emitir veredito e encerrar</button></div>
+          <div><button type="submit" class="btn btn-final" data-loading-text="Encerrando e gerando relatório…">Emitir veredito e encerrar</button></div>
         </form>
+        <p class="dica" style="margin-top:8px;">Ao encerrar, a IA escreve um relatório final em PDF com tudo o que aconteceu no projeto (pode levar alguns segundos).</p>
+      </div>
+    {% elif auditoria_atual and auditoria_atual.status == 'encerrada' %}
+      <div class="card card-final">
+        <div class="nc-card-topo">
+          <h2>Relatório final</h2>
+          <span class="status-badge status-encerrado">{{ auditoria_atual.parecer_final }}</span>
+        </div>
+        {% if auditoria_atual.relatorio_ia %}
+          <p class="dica">Gerado pela IA em {{ auditoria_atual.relatorio_gerado_em|formatar_data }}: resumo, histórico das auditorias, NCs, e-mails, escalonamentos e recomendações.</p>
+        {% else %}
+          <p class="dica" style="color:#8a6100; background:#fdf1d6; border-radius:8px; padding:8px 12px;">
+            A análise da IA ainda não foi gerada. O PDF sai só com os números do sistema até você gerar com a IA.
+          </p>
+        {% endif %}
+        <div class="acoes-linha" style="margin-top:10px;">
+          <a class="btn" href="{{ url_for('auditorias.baixar_relatorio', auditoria_id=auditoria_atual.id) }}">⬇ Baixar relatório (PDF)</a>
+          <form action="{{ url_for('auditorias.gerar_relatorio', auditoria_id=auditoria_atual.id) }}" method="post" data-ajax="true">
+            <button type="submit" class="btn-secundario" data-loading-text="Gerando com IA…">
+              {{ '↻ Gerar novamente com IA' if auditoria_atual.relatorio_ia else '✨ Gerar com IA' }}
+            </button>
+          </form>
+        </div>
       </div>
     {% endif %}
 

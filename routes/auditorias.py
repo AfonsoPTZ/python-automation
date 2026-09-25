@@ -2,9 +2,16 @@
 # correção e escalonamento agora são por não conformidade (ver routes/nc.py)
 # — cada NC tem seu próprio prazo e seu próprio e-mail, em vez de um resumo
 # único da auditoria inteira.
-from flask import Blueprint, flash, redirect, request, url_for
+import json
+import re
+import unicodedata
+from datetime import datetime
 
+from flask import Blueprint, Response, abort, flash, redirect, request, url_for
+
+from auditoria.ia import gerar_relatorio_final_com_ia
 from database import get_db
+from services.relatorio_final import carregar_texto_ia, coletar_dados, montar_pdf
 
 bp = Blueprint("auditorias", __name__, url_prefix="/auditorias")
 
@@ -52,11 +59,17 @@ def encerrar(auditoria_id):
         return redirect(url_for("projetos.detalhe", projeto_id=projeto["id"]))
 
     db.execute(
-        "UPDATE auditorias SET parecer_final = ?, status = 'encerrada' WHERE id = ?",
-        (parecer_final, auditoria_id),
+        "UPDATE auditorias SET parecer_final = ?, status = 'encerrada', encerrada_em = ? WHERE id = ?",
+        (parecer_final, datetime.now().strftime(FORMATO_DATA), auditoria_id),
     )
     db.execute("UPDATE projetos SET status = 'Encerrado' WHERE id = ?", (projeto["id"],))
     db.commit()
+
+    # O encerramento já está salvo: se a IA falhar aqui, a auditoria continua
+    # encerrada e o relatório pode ser gerado de novo pelo botão da página.
+    erro_relatorio = _gerar_relatorio(db, auditoria_id)
+    if erro_relatorio:
+        flash(f"O relatório final não foi gerado pela IA: {erro_relatorio}", "erro")
 
     if total_nc_abertas > 0:
         # Reprovado com NCs abertas — permitido, mas avisar.
@@ -68,3 +81,54 @@ def encerrar(auditoria_id):
     else:
         flash(f"Auditoria encerrada com parecer: {parecer_final}.", "ok")
     return redirect(url_for("projetos.detalhe", projeto_id=projeto["id"]))
+
+
+FORMATO_DATA = "%Y-%m-%d %H:%M:%S"
+
+
+# Pede à IA o texto do relatório final e salva na auditoria. Devolve a
+# mensagem de erro (ou None se deu certo) para quem chamou decidir o flash.
+def _gerar_relatorio(db, auditoria_id):
+    try:
+        secoes = gerar_relatorio_final_com_ia(coletar_dados(db, auditoria_id))
+    except Exception as erro:
+        return str(erro)
+    db.execute(
+        "UPDATE auditorias SET relatorio_ia = ?, relatorio_gerado_em = ? WHERE id = ?",
+        (json.dumps(secoes, ensure_ascii=False), datetime.now().strftime(FORMATO_DATA), auditoria_id),
+    )
+    db.commit()
+    return None
+
+
+@bp.post("/<int:auditoria_id>/relatorio/gerar")
+def gerar_relatorio(auditoria_id):
+    db = get_db()
+    auditoria, projeto = _buscar_auditoria_e_projeto(auditoria_id)
+    if auditoria is None:
+        abort(404)
+    if auditoria["status"] != "encerrada":
+        flash("O relatório final só pode ser gerado depois de encerrar a auditoria.", "erro")
+    else:
+        erro = _gerar_relatorio(db, auditoria_id)
+        if erro:
+            flash(f"Não foi possível gerar o relatório pela IA: {erro}", "erro")
+        else:
+            flash("Relatório final gerado. Já pode baixar o PDF.", "ok")
+    return redirect(url_for("projetos.detalhe", projeto_id=projeto["id"]))
+
+
+@bp.get("/<int:auditoria_id>/relatorio.pdf")
+def baixar_relatorio(auditoria_id):
+    db = get_db()
+    auditoria, projeto = _buscar_auditoria_e_projeto(auditoria_id)
+    if auditoria is None or auditoria["status"] != "encerrada":
+        abort(404)
+    pdf = montar_pdf(coletar_dados(db, auditoria_id), carregar_texto_ia(auditoria))
+    sem_acento = unicodedata.normalize("NFKD", projeto["nome"]).encode("ascii", "ignore").decode()
+    nome_arquivo = re.sub(r"[^A-Za-z0-9_-]+", "_", sem_acento).strip("_") or "projeto"
+    return Response(
+        pdf,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="relatorio_final_{nome_arquivo}.pdf"'},
+    )

@@ -105,6 +105,7 @@ function dadosDaNc(form) {
   }
   return {
     titulo: card.dataset.ncTitulo,
+    item: card.dataset.ncItem,
     descricao: card.dataset.ncDescricao,
     evidencia: card.dataset.ncEvidencia,
     impacto: card.dataset.ncImpacto,
@@ -147,12 +148,36 @@ function abrirModalEmailEquipe(botao) {
       <label class="modal-label">Enviar para</label>
       <div class="modal-destinatarios">${checkboxesHtml}</div>
       <p class="modal-erro-destinatarios oculto">Selecione ao menos um integrante.</p>
-      <p class="modal-mensagem">Para qual data você quer que ocorra a nova atualização?</p>
-      <label class="modal-label" for="modal-data">Data e horário da nova atualização</label>
-      <input id="modal-data" class="modal-campo" type="datetime-local" required>
       ${reabertura ? `
-        <label class="modal-label" for="modal-orientacao">Orientação do superior</label>
-        <textarea id="modal-orientacao" class="modal-campo" rows="3" placeholder="O que o superior orientou a equipe a fazer?"></textarea>
+        <label class="modal-label">Tipo de e-mail</label>
+        <div class="modal-tipo-email">
+          <label class="opcao-tipo-email">
+            <input type="radio" name="modal-tipo" value="prazo" checked>
+            <span><strong>Solicitar nova correção</strong><small>Define um novo prazo para a equipe</small></span>
+          </label>
+          <label class="opcao-tipo-email">
+            <input type="radio" name="modal-tipo" value="livre">
+            <span><strong>E-mail com mensagem livre</strong><small>Outra decisão do superior, sem novo prazo</small></span>
+          </label>
+        </div>
+      ` : ""}
+      <div class="modal-bloco-prazo">
+        <p class="modal-mensagem">Para qual data você quer que ocorra a nova atualização?</p>
+        <label class="modal-label" for="modal-data">Data da nova atualização</label>
+        <input id="modal-data" class="modal-campo" type="date" required>
+        <label class="modal-label" for="modal-hora">Horário da nova atualização</label>
+        <input id="modal-hora" class="modal-campo" type="time" required>
+        ${reabertura ? `
+          <label class="modal-label" for="modal-orientacao">Orientação do superior</label>
+          <textarea id="modal-orientacao" class="modal-campo" rows="3" placeholder="O que o superior orientou a equipe a fazer?"></textarea>
+        ` : ""}
+      </div>
+      ${reabertura ? `
+        <div class="modal-bloco-livre oculto">
+          <label class="modal-label" for="modal-texto-livre">Mensagem</label>
+          <textarea id="modal-texto-livre" class="modal-campo" rows="6" placeholder="Escreva o que o superior decidiu (ex.: a NC será tratada em reunião, será aceita com ressalva...)"></textarea>
+          <p class="modal-erro-texto-livre modal-erro-destinatarios oculto">Escreva a mensagem do e-mail.</p>
+        </div>
       ` : ""}
       <div class="modal-acoes">
         <button type="button" class="btn-secundario" data-modal-cancelar>Cancelar</button>
@@ -174,14 +199,46 @@ function abrirModalEmailEquipe(botao) {
   });
   overlay.querySelector("#modal-data").focus();
 
+  const tipoSelecionado = () => overlay.querySelector('input[name="modal-tipo"]:checked')?.value || "prazo";
+  overlay.querySelectorAll('input[name="modal-tipo"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      const livre = tipoSelecionado() === "livre";
+      overlay.querySelector(".modal-bloco-prazo").classList.toggle("oculto", livre);
+      overlay.querySelector(".modal-bloco-livre").classList.toggle("oculto", !livre);
+      overlay.querySelector(livre ? "#modal-texto-livre" : "#modal-data").focus();
+    });
+  });
+
   overlay.querySelector("[data-modal-confirmar]").addEventListener("click", async () => {
     const selecionados = Array.from(overlay.querySelectorAll(".modal-destinatario:checked")).map((el) => el.value);
     if (!selecionados.length) {
       overlay.querySelector(".modal-erro-destinatarios").classList.remove("oculto");
       return;
     }
-    const dataEscolhida = overlay.querySelector("#modal-data").value;
-    if (!dataEscolhida) return;
+
+    // Mensagem livre: só abre o Gmail — não mexe no prazo nem no status da NC.
+    if (tipoSelecionado() === "livre") {
+      const textoLivre = overlay.querySelector("#modal-texto-livre").value.trim();
+      if (!textoLivre) {
+        overlay.querySelector(".modal-erro-texto-livre").classList.remove("oculto");
+        return;
+      }
+      const linhasLivre = [
+        "Olá,", "",
+        `Sobre a não conformidade escalonada do projeto "${dados.projetoNome}":`,
+        ...(dados.item ? [`Item do checklist: ${dados.item}`] : []), `Título: ${dados.titulo}`, "",
+        textoLivre,
+        "", "Atenciosamente,", "Auditoria de Qualidade",
+      ];
+      const assuntoLivre = `[Auditoria de Qualidade] ${dados.projetoNome} - ${dados.titulo}`;
+      window.open(montarLinkGmail(selecionados, assuntoLivre, linhasLivre.join("\n")), "_blank");
+      fechar();
+      return;
+    }
+    const data = overlay.querySelector("#modal-data").value;
+    const hora = overlay.querySelector("#modal-hora").value;
+    if (!data || !hora) return;
+    const dataEscolhida = `${data}T${hora}`;
     const prazo = dataEscolhida.replace("T", " ") + ":00";
     const orientacao = overlay.querySelector("#modal-orientacao")?.value.trim() || "";
     const linhas = [
@@ -189,7 +246,7 @@ function abrirModalEmailEquipe(botao) {
       reabertura
         ? `Após o escalonamento da não conformidade do projeto "${dados.projetoNome}", foi solicitada uma nova correção pela equipe.`
         : `A auditoria de qualidade do projeto "${dados.projetoNome}" identificou a seguinte não conformidade que precisa ser corrigida:`,
-      "", "Não conformidade:", `Título: ${dados.titulo}`, `Descrição: ${dados.descricao}`,
+      "", "Não conformidade:", ...(dados.item ? [`Item do checklist: ${dados.item}`] : []), `Título: ${dados.titulo}`, `Descrição: ${dados.descricao}`,
     ];
     if (dados.evidencia) linhas.push(`Evidência: ${dados.evidencia}`);
     if (dados.impacto) linhas.push(`Impacto: ${dados.impacto}`);
@@ -238,7 +295,7 @@ function abrirEmailEscalonamento(form) {
       + "esta pendência para o seu acompanhamento.",
     "",
     "Correção solicitada:",
-    `Título: ${dados.titulo}`,
+    ...(dados.item ? [`Item do checklist: ${dados.item}`] : []), `Título: ${dados.titulo}`,
     `Descrição: ${dados.descricao}`,
   ];
   if (dados.notificadoEm) linhas.push(`Notificada ao grupo em: ${dados.notificadoEm}`);
@@ -486,12 +543,52 @@ document.addEventListener("submit", async (evento) => {
 
   if (form.dataset.ajax) {
     evento.preventDefault();
-    submeterAjax(form);
+    await submeterAjax(form);
+    form.closest(".modal-overlay")?.remove();
   }
 });
 
+// ===================== Modal de edição de NC =====================
+// O formulário vem de um <template> ao lado do botão; é clonado para dentro
+// de um modal no <body>. O submit continua passando pelo listener delegado
+// (data-ajax), que fecha o modal quando o conteúdo é atualizado.
+function abrirModalEditarNc(botao) {
+  const template = botao.parentElement.querySelector(".tpl-editar-nc");
+  if (!template) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Editar não conformidade");
+  const caixa = document.createElement("div");
+  caixa.className = "modal-caixa modal-caixa--largo modal-caixa--rolavel";
+  caixa.appendChild(template.content.cloneNode(true));
+  overlay.appendChild(caixa);
+  document.body.appendChild(overlay);
+
+  const fechar = () => {
+    overlay.classList.add("modal-saindo");
+    setTimeout(() => overlay.remove(), 150);
+  };
+  overlay.querySelector("[data-modal-cancelar]").addEventListener("click", fechar);
+  overlay.addEventListener("click", (evento) => {
+    if (evento.target === overlay) fechar();
+  });
+  overlay.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") fechar();
+  });
+  overlay.querySelector("input, textarea")?.focus();
+}
+
 // ===================== Cliques delegados (participantes, toasts, menu) =====================
 document.addEventListener("click", (evento) => {
+  const botaoEditarNc = evento.target.closest(".btn-abrir-editar-nc");
+  if (botaoEditarNc) {
+    abrirModalEditarNc(botaoEditarNc);
+    return;
+  }
+
   const botaoEmail = evento.target.closest(".btn-abrir-email");
   if (botaoEmail) {
     evento.preventDefault();

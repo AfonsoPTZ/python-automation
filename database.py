@@ -31,6 +31,9 @@ _MIGRACOES = [
     ("documentos", "versao", "INTEGER NOT NULL DEFAULT 1"),
     ("nao_conformidades", "notificado_em", "TEXT"),
     ("auditorias", "checklist_id", "INTEGER REFERENCES checklists(id) ON DELETE SET NULL"),
+    ("auditorias", "encerrada_em", "TEXT"),
+    ("auditorias", "relatorio_ia", "TEXT"),
+    ("auditorias", "relatorio_gerado_em", "TEXT"),
 ]
 
 

@@ -409,7 +409,8 @@ def detalhe(projeto_id):
     nao_conformidades = []
     if auditoria_atual:
         nao_conformidades = db.execute(
-            "SELECT * FROM nao_conformidades WHERE auditoria_id = ? ORDER BY id",
+            "SELECT * FROM nao_conformidades WHERE auditoria_id = ? "
+            "ORDER BY item_checklist IS NULL, item_checklist, id",
             (auditoria_atual["id"],),
         ).fetchall()
 

@@ -56,7 +56,12 @@ CREATE TABLE IF NOT EXISTS auditorias (
   parecer_final TEXT, -- 'Aprovado' | 'Aprovado com Ressalvas' | 'Reprovado'
   prazo_limite TEXT,
   escalonado INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'em_revisao' -- em_revisao | aguardando_correcao | escalonado | encerrada
+  status TEXT NOT NULL DEFAULT 'em_revisao', -- em_revisao | aguardando_correcao | escalonado | encerrada
+  encerrada_em TEXT,
+  -- Texto do relatório final escrito pela IA ao encerrar (JSON com as seções).
+  -- O PDF é montado na hora do download a partir dele + números do banco.
+  relatorio_ia TEXT,
+  relatorio_gerado_em TEXT
 );
 
 CREATE TABLE IF NOT EXISTS nao_conformidades (

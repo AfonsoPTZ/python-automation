@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 
 import config
 from auditoria import auditar_projeto
+from auditoria.criterios import NOME as CHECKLIST_PADRAO_NOME
 from database import get_db
 from services.gmail_link import montar_link_gmail, texto_escalonamento_nc, texto_notificacao_nc
 
@@ -38,6 +39,27 @@ def _inserir_participantes(db, projeto_id, nomes, emails):
         elif nome or email:
             incompletos.append(nome or email)
     return incompletos
+
+
+def _inserir_checklist_itens(db, checklist_id, codigos, categorias, descricoes):
+    # Mesma lógica de _inserir_participantes: linha totalmente vazia é normal
+    # (sobra do formulário dinâmico), mas descrição vazia é erro de
+    # preenchimento — sem avisar, o item some sem o usuário perceber. Código
+    # é opcional: fica auto-numerado ("C1", "C2"...) quando não informado.
+    ordem = 0
+    for codigo, categoria, descricao in zip(codigos, categorias, descricoes):
+        codigo = (codigo or "").strip()
+        categoria = (categoria or "").strip()
+        descricao = (descricao or "").strip()
+        if not descricao:
+            continue
+        ordem += 1
+        db.execute(
+            "INSERT INTO checklist_itens (checklist_id, codigo, categoria, descricao, ordem) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (checklist_id, codigo or f"C{ordem}", categoria, descricao, ordem),
+        )
+    return ordem
 
 
 def _buscar_projeto_ou_404(projeto_id):
@@ -273,6 +295,57 @@ def excluir_participante(projeto_id, participante_id):
     return redirect(request.referrer or url_for("projetos.editar", projeto_id=projeto_id))
 
 
+@bp.post("/<int:projeto_id>/checklists")
+def criar_checklist(projeto_id):
+    db = get_db()
+    try:
+        _buscar_projeto_ou_404(projeto_id)
+    except LookupError:
+        flash("Projeto não encontrado.", "erro")
+        return redirect(url_for("projetos.listar"))
+
+    nome = (request.form.get("nome") or "").strip()
+    if not nome:
+        flash("Informe um nome para o checklist.", "erro")
+        return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+    codigos = request.form.getlist("item_codigo")
+    categorias = request.form.getlist("item_categoria")
+    descricoes = request.form.getlist("item_descricao")
+
+    cursor = db.execute(
+        "INSERT INTO checklists (projeto_id, nome) VALUES (?, ?)", (projeto_id, nome)
+    )
+    checklist_id = cursor.lastrowid
+    total_itens = _inserir_checklist_itens(db, checklist_id, codigos, categorias, descricoes)
+
+    if total_itens == 0:
+        db.execute("DELETE FROM checklists WHERE id = ?", (checklist_id,))
+        db.commit()
+        flash("Adicione ao menos um item com descrição para criar o checklist.", "erro")
+        return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+    db.commit()
+    flash(f'Checklist "{nome}" criado com {total_itens} {"item" if total_itens == 1 else "itens"}.', "ok")
+    return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+
+@bp.post("/<int:projeto_id>/checklists/<int:checklist_id>/excluir")
+def excluir_checklist(projeto_id, checklist_id):
+    db = get_db()
+    checklist = db.execute(
+        "SELECT * FROM checklists WHERE id = ? AND projeto_id = ?", (checklist_id, projeto_id)
+    ).fetchone()
+    if checklist is None:
+        flash("Checklist não encontrado.", "erro")
+        return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+    db.execute("DELETE FROM checklists WHERE id = ?", (checklist_id,))
+    db.commit()
+    flash(f'Checklist "{checklist["nome"]}" removido.', "ok")
+    return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+
 @bp.post("/<int:projeto_id>/documentos/<int:documento_id>/excluir")
 def excluir_documento(projeto_id, documento_id):
     db = get_db()
@@ -344,6 +417,20 @@ def detalhe(projeto_id):
         "SELECT * FROM logs_emails WHERE projeto_id = ? ORDER BY id DESC", (projeto_id,)
     ).fetchall()
 
+    checklists = db.execute(
+        "SELECT checklists.*, COUNT(checklist_itens.id) AS total_itens "
+        "FROM checklists LEFT JOIN checklist_itens ON checklist_itens.checklist_id = checklists.id "
+        "WHERE checklists.projeto_id = ? GROUP BY checklists.id ORDER BY checklists.created_at DESC",
+        (projeto_id,),
+    ).fetchall()
+
+    checklist_atual_nome = CHECKLIST_PADRAO_NOME
+    if auditoria_atual and auditoria_atual["checklist_id"]:
+        linha_checklist = db.execute(
+            "SELECT nome FROM checklists WHERE id = ?", (auditoria_atual["checklist_id"],)
+        ).fetchone()
+        checklist_atual_nome = linha_checklist["nome"] if linha_checklist else "Checklist removido"
+
     resumo_nc = {"abertas": 0, "escalonadas": 0, "aguardando": 0, "vencidas": 0}
     agora = datetime.now().strftime(FORMATO_DATA)
     for nc in nao_conformidades:
@@ -410,6 +497,9 @@ def detalhe(projeto_id):
         nc_links=nc_links,
         proximo_prazo=proximo_prazo,
         resumo_nc=resumo_nc,
+        checklists=checklists,
+        checklist_padrao_nome=CHECKLIST_PADRAO_NOME,
+        checklist_atual_nome=checklist_atual_nome,
     )
 
 
@@ -487,17 +577,45 @@ def rodar_auditoria(projeto_id):
         flash("Envie ao menos um documento antes de rodar a auditoria por IA.", "erro")
         return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
 
+    # Checklist da auditoria: o padrão da disciplina (sem seleção ou "padrao")
+    # ou um checklist próprio do projeto, criado do zero pelo usuário.
+    checklist_id_form = (request.form.get("checklist_id") or "").strip()
+    checklist_id = None
+    criterios = None
+    if checklist_id_form and checklist_id_form != "padrao":
+        checklist = db.execute(
+            "SELECT * FROM checklists WHERE id = ? AND projeto_id = ?",
+            (checklist_id_form, projeto_id),
+        ).fetchone()
+        if checklist is None:
+            flash("Checklist selecionado não foi encontrado.", "erro")
+            return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
+
+        itens_checklist = db.execute(
+            "SELECT * FROM checklist_itens WHERE checklist_id = ? ORDER BY ordem, id",
+            (checklist["id"],),
+        ).fetchall()
+        criterios = [
+            {
+                "codigo": item["codigo"],
+                "categoria": item["categoria"] or "",
+                "descricao": item["descricao"],
+            }
+            for item in itens_checklist
+        ]
+        checklist_id = checklist["id"]
+
     caminhos = [documento["caminho_arquivo"] for documento in documentos]
 
     try:
-        resultado = auditar_projeto(caminhos)
+        resultado = auditar_projeto(caminhos, criterios)
     except Exception as erro:
         flash(f"Não foi possível concluir a avaliação por IA: {erro}", "erro")
         return redirect(url_for("projetos.detalhe", projeto_id=projeto_id))
 
     cursor = db.execute(
-        "INSERT INTO auditorias (projeto_id, aderencia, status) VALUES (?, ?, 'em_revisao')",
-        (projeto_id, resultado["aderencia"]),
+        "INSERT INTO auditorias (projeto_id, checklist_id, aderencia, status) VALUES (?, ?, ?, 'em_revisao')",
+        (projeto_id, checklist_id, resultado["aderencia"]),
     )
     auditoria_id = cursor.lastrowid
 

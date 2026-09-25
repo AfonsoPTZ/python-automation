@@ -25,10 +25,12 @@ def auditar(arquivo_pdf, nome_arquivo):
 
 # Lê um ou mais documentos de um projeto (pdf/docx/xlsx/txt), avalia o
 # checklist com a IA (pedindo título/impacto/ação corretiva para as NCs) e
-# calcula a % de aderência. Usado pelo Painel do Auditor.
-def auditar_projeto(caminhos_arquivos):
+# calcula a % de aderência. Usado pelo Painel do Auditor. `criterios` é o
+# checklist padrão da disciplina por padrão, ou um checklist próprio do
+# projeto — ver routes/projetos.py:rodar_auditoria.
+def auditar_projeto(caminhos_arquivos, criterios=None):
     texto = extrair_texto_documentos(caminhos_arquivos)
-    itens = avaliar_projeto_com_ia(texto)
+    itens = avaliar_projeto_com_ia(texto, criterios)
 
     conformes = [item for item in itens if item["status"] == "CF"]
     nao_conformes = [item for item in itens if item["status"] == "NC"]

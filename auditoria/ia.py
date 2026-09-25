@@ -76,10 +76,10 @@ _ESQUEMA_RESPOSTA_NC = {
 }
 
 
-def _montar_prompt(texto_documento, incluir_nc=False):
+def _montar_prompt(texto_documento, criterios, incluir_nc=False):
     checklist = "\n".join(
-        f'{criterio["codigo"]} ({criterio["categoria"]}): {criterio["descricao"]}'
-        for criterio in CRITERIOS
+        f'{criterio["codigo"]} ({criterio.get("categoria") or "Geral"}): {criterio["descricao"]}'
+        for criterio in criterios
     )
     instrucao_extra = (
         " Para todo item, preencha 'titulo': uma frase curta e direta, em "
@@ -159,7 +159,7 @@ def _interpretar_resposta(resposta):
 
 # Envia o checklist e o texto do documento para a IA e devolve a lista de resultados.
 def avaliar_com_ia(texto_documento):
-    resposta = _gerar_com_retentativas(_cliente(), _montar_prompt(texto_documento))
+    resposta = _gerar_com_retentativas(_cliente(), _montar_prompt(texto_documento, CRITERIOS))
     resultados_por_codigo = _interpretar_resposta(resposta)
 
     itens = []
@@ -179,14 +179,17 @@ def avaliar_com_ia(texto_documento):
 
 # Igual a avaliar_com_ia, mas também pede título, impacto e ação corretiva
 # para os itens não conformes — usado pelo Painel do Auditor (QA Audit Manager)
-# para gerar as Não Conformidades (NCs) de um projeto.
-def avaliar_projeto_com_ia(texto_documento):
-    prompt = _montar_prompt(texto_documento, incluir_nc=True)
+# para gerar as Não Conformidades (NCs) de um projeto. `criterios` é o
+# checklist padrão da disciplina por padrão, mas pode ser um checklist
+# próprio do projeto (ver auditoria/checklist.py).
+def avaliar_projeto_com_ia(texto_documento, criterios=None):
+    criterios = criterios if criterios is not None else CRITERIOS
+    prompt = _montar_prompt(texto_documento, criterios, incluir_nc=True)
     resposta = _gerar_com_retentativas(_cliente(), prompt, esquema=_ESQUEMA_RESPOSTA_NC)
     resultados_por_codigo = _interpretar_resposta(resposta)
 
     itens = []
-    for criterio in CRITERIOS:
+    for criterio in criterios:
         resultado = resultados_por_codigo.get(criterio["codigo"])
         status = resultado.get("status") if resultado else None
         status = status if status in _STATUS_VALIDOS else "NC"

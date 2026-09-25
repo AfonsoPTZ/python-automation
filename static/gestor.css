@@ -142,6 +142,10 @@
   .linha-participante-atual input:nth-child(2) { min-width: 0; }
 }
 
+/* Seleção do checklist antes de rodar a auditoria por IA. */
+.lista-opcoes-checklist { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.form-gestor .opcao-checklist { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: .92rem; margin-bottom: 0; }
+
 .btn-secundario {
   background: #eef0f3; color: #2c5090; border: 0; border-radius: 8px;
   padding: 8px 16px; font-size: .88rem; font-weight: 600; cursor: pointer; text-decoration: none;
@@ -308,6 +312,29 @@ details.nc-editar summary::before { content: ""; }
 .modal-campo:focus { border-color: #2c5090; outline: 2px solid rgba(44, 80, 144, .18); }
 /* Variante mais larga para modais com formulário (pós-escalonamento) */
 .modal-caixa--largo { max-width: 520px; }
+.modal-caixa--checklist { max-width: 620px; max-height: 88vh; overflow-y: auto; }
+
+/* Itens do checklist criado do zero: um cartãozinho numerado por item
+   (código + categoria + descrição), igual à estrutura de auditoria/criterios.py. */
+#modal-checklist-itens { max-height: 320px; overflow-y: auto; padding-right: 2px; margin-bottom: 10px; }
+.checklist-item-card {
+  border: 1px solid #e4e8ee; border-radius: 10px; padding: 12px 14px 4px;
+  margin-bottom: 10px; background: #f7f9fc;
+}
+.checklist-item-cabecalho { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.checklist-item-numero {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; background: #2c5090; color: #fff;
+  font-size: .78rem; font-weight: 700; flex: none;
+}
+.checklist-item-cabecalho .btn-remover-linha { width: 28px; height: 28px; }
+.checklist-item-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.checklist-item-campos > div:nth-child(3) { grid-column: 1 / -1; }
+.checklist-item-campos .modal-campo { margin-bottom: 4px; }
+.checklist-item-campos textarea.modal-campo { resize: vertical; min-height: 44px; }
+@media (max-width: 560px) {
+  .checklist-item-campos { grid-template-columns: 1fr; }
+}
 
 /* Checkboxes de "enviar para" (quem recebe o e-mail desta NC) no modal. */
 .modal-destinatarios {

@@ -30,6 +30,7 @@ _MIGRACOES = [
     ("nao_conformidades", "escalonado", "INTEGER NOT NULL DEFAULT 0"),
     ("documentos", "versao", "INTEGER NOT NULL DEFAULT 1"),
     ("nao_conformidades", "notificado_em", "TEXT"),
+    ("auditorias", "checklist_id", "INTEGER REFERENCES checklists(id) ON DELETE SET NULL"),
 ]
 
 
@@ -41,12 +42,18 @@ def _aplicar_migracoes(db):
     db.commit()
 
 
+def _criar_tabelas(db):
+    # CREATE TABLE/INDEX IF NOT EXISTS: seguro rodar de novo em bancos que já
+    # existiam antes de uma tabela nova (ex.: checklists) ser adicionada aqui.
+    with open(config.BASE_DIR / "schema.sql", "r", encoding="utf-8") as arquivo:
+        db.executescript(arquivo.read())
+
+
 def init_db():
     config.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(str(config.DATABASE_PATH))
     db.row_factory = sqlite3.Row
-    with open(config.BASE_DIR / "schema.sql", "r", encoding="utf-8") as arquivo:
-        db.executescript(arquivo.read())
+    _criar_tabelas(db)
     _aplicar_migracoes(db)
     db.close()
 
@@ -66,9 +73,10 @@ def init_app(app):
     if not config.DATABASE_PATH.exists():
         init_db()
     else:
-        # Banco já existia de uma versão anterior do schema: só aplica as
-        # colunas novas, sem recriar nada nem perder dados.
+        # Banco já existia de uma versão anterior do schema: cria só as
+        # tabelas/colunas novas (tudo com IF NOT EXISTS), sem perder dados.
         db = sqlite3.connect(str(config.DATABASE_PATH))
         db.row_factory = sqlite3.Row
+        _criar_tabelas(db)
         _aplicar_migracoes(db)
         db.close()

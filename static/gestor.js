@@ -263,6 +263,114 @@ function abrirEmailEscalonamento(form) {
   }
 }
 
+// ===================== Modal de criação de checklist =====================
+// Cada item vira um critério avaliado pela IA (código + categoria + descrição,
+// igual à estrutura de auditoria/criterios.py) — renderizado como um
+// cartãozinho numerado em vez de três campos soltos, pra ficar claro o que é
+// cada coisa.
+function _novoItemChecklistHtml(numero) {
+  return `
+    <div class="checklist-item-card">
+      <div class="checklist-item-cabecalho">
+        <span class="checklist-item-numero">${numero}</span>
+        <button type="button" class="btn-remover-linha" aria-label="Remover este item" title="Remover">×</button>
+      </div>
+      <div class="checklist-item-campos">
+        <div>
+          <label class="modal-label">Código</label>
+          <input type="text" name="item_codigo" class="modal-campo" placeholder="Opcional, ex.: C1">
+        </div>
+        <div>
+          <label class="modal-label">Categoria</label>
+          <input type="text" name="item_categoria" class="modal-campo" placeholder="Opcional, ex.: Introdução">
+        </div>
+        <div>
+          <label class="modal-label">Descrição do critério</label>
+          <textarea name="item_descricao" class="modal-campo" rows="2" placeholder="O que este item verifica no documento?"></textarea>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _renumerarItensChecklist(lista) {
+  lista.querySelectorAll(".checklist-item-card").forEach((cartao, indice) => {
+    cartao.querySelector(".checklist-item-numero").textContent = indice + 1;
+  });
+}
+
+function abrirModalNovoChecklist(botao) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="modal-caixa modal-caixa--largo modal-caixa--checklist">
+      <p class="modal-titulo">Criar checklist</p>
+      <form id="form-novo-checklist" action="${botao.dataset.criarUrl}" method="post" data-ajax="true">
+        <label class="modal-label" for="modal-checklist-nome">Nome do checklist</label>
+        <input id="modal-checklist-nome" class="modal-campo" type="text" name="nome"
+               placeholder="Ex.: Checklist interno de código" required autofocus>
+
+        <label class="modal-label">Itens do checklist</label>
+        <p class="modal-mensagem" style="margin:0 0 10px;font-size:.82rem;">
+          Código e categoria são opcionais; a descrição é o que a IA vai avaliar em cada documento.
+        </p>
+        <div id="modal-checklist-itens">${_novoItemChecklistHtml(1)}</div>
+        <button type="button" class="btn-secundario" id="modal-add-item-checklist">+ Adicionar item</button>
+
+        <div class="modal-acoes">
+          <button type="button" class="btn-secundario" data-modal-cancelar>Cancelar</button>
+          <button type="submit" class="btn" data-loading-text="Criando…">Criar checklist</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const form = overlay.querySelector("#form-novo-checklist");
+  const lista = overlay.querySelector("#modal-checklist-itens");
+
+  const fechar = () => {
+    overlay.classList.add("modal-saindo");
+    setTimeout(() => overlay.remove(), 150);
+  };
+  overlay.querySelector("[data-modal-cancelar]").addEventListener("click", fechar);
+  overlay.addEventListener("click", (evento) => {
+    if (evento.target === overlay) fechar();
+  });
+  overlay.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") fechar();
+  });
+  overlay.querySelector("#modal-checklist-nome").focus();
+
+  overlay.querySelector("#modal-add-item-checklist").addEventListener("click", () => {
+    lista.insertAdjacentHTML("beforeend", _novoItemChecklistHtml(lista.children.length + 1));
+  });
+
+  lista.addEventListener("click", (evento) => {
+    const botaoRemover = evento.target.closest(".btn-remover-linha");
+    if (!botaoRemover) return;
+    const cartoes = lista.querySelectorAll(".checklist-item-card");
+    if (cartoes.length <= 1) {
+      botaoRemover.closest(".checklist-item-card").querySelectorAll("input, textarea").forEach((campo) => (campo.value = ""));
+      return;
+    }
+    botaoRemover.closest(".checklist-item-card").remove();
+    _renumerarItensChecklist(lista);
+  });
+
+  form.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const temDescricao = Array.from(form.querySelectorAll('[name="item_descricao"]')).some((campo) => campo.value.trim());
+    if (!temDescricao) {
+      _mostrarToast("Adicione ao menos um item com descrição para criar o checklist.", "erro");
+      return;
+    }
+    _aplicarLoadingBotao(form);
+    await submeterAjax(form);
+    fechar();
+  });
+}
+
 // ===================== Envio sem recarregar a página =====================
 // Troca só o conteúdo principal pelo HTML que o servidor devolveria de
 // qualquer forma (o Flask continua processando normalmente e redirecionando
@@ -411,16 +519,23 @@ document.addEventListener("click", (evento) => {
     return;
   }
 
+  const botaoAbrirChecklist = evento.target.closest(".btn-abrir-checklist-modal");
+  if (botaoAbrirChecklist) {
+    abrirModalNovoChecklist(botaoAbrirChecklist);
+    return;
+  }
+
   const botaoRemover = evento.target.closest(".btn-remover-linha");
   if (botaoRemover) {
-    const lista = document.getElementById("lista-participantes");
+    const linhaAtual = botaoRemover.closest(".linha-participante");
+    const lista = linhaAtual?.parentElement;
     if (!lista) return;
-    const linhas = lista.querySelectorAll(".linha-participante");
+    const linhas = lista.querySelectorAll(":scope > .linha-participante");
     if (linhas.length <= 1) {
-      botaoRemover.closest(".linha-participante").querySelectorAll("input").forEach((campo) => (campo.value = ""));
+      linhaAtual.querySelectorAll("input").forEach((campo) => (campo.value = ""));
       return;
     }
-    botaoRemover.closest(".linha-participante").remove();
+    linhaAtual.remove();
   }
 });
 
